@@ -1,5 +1,8 @@
 import unittest
+import pandas as pd
+
 from unittest.mock import patch, MagicMock
+from pathlib import Path
 
 from src import file_utils
 
@@ -97,3 +100,63 @@ class TestFileUtils(unittest.TestCase):
         # Test when directory check fails
         result = file_utils.get_available_datasets("invalid_dir")
         self.assertEqual(result, [])  # Should return empty list
+
+    def test_get_dataset_path(self):
+        raw_data_dir = "data/raw_data"
+        dataset_name = "test"
+        expected_path = Path(raw_data_dir).joinpath(f'STARCOP_{dataset_name}').as_posix()
+
+        result = file_utils.get_dataset_path(raw_data_dir, dataset_name)
+        self.assertEqual(result, expected_path)
+
+    @patch('src.file_utils.check_file_exist', return_value=True)
+    @patch('pandas.read_csv')
+    def test_read_dataset_csv_with_csv_file_path(self, mock_read_csv, mock_check_file_exist):
+        # Simulate valid csv_file_path scenario
+        csv_file_path = "data/raw_data/test.csv"
+        mock_df = MagicMock(spec=pd.DataFrame)
+        mock_read_csv.return_value = mock_df
+
+        result = file_utils.read_dataset_csv(csv_file_path=csv_file_path)
+
+        mock_check_file_exist.assert_called_once_with(csv_file_path)
+        mock_read_csv.assert_called_once_with(csv_file_path)
+        self.assertEqual(result, mock_df)
+
+    @patch('src.file_utils.get_dataset_path')
+    @patch('src.file_utils.check_file_exist', return_value=True)
+    @patch('pandas.read_csv')
+    def test_read_dataset_csv_with_raw_data_dir_and_dataset_name(self, mock_read_csv, mock_check_file_exist, mock_get_dataset_path):
+        # Simulate valid raw_data_dir and dataset_name scenario
+        raw_data_dir = "data/raw_data"
+        dataset_name = "test"
+        dataset_path = "data/raw_data/STARCOP_test"
+        mock_get_dataset_path.return_value = dataset_path
+        csv_file_path = Path(dataset_path).joinpath(f'{dataset_name}.csv')
+        mock_df = MagicMock(spec=pd.DataFrame)
+        mock_read_csv.return_value = mock_df
+
+        result = file_utils.read_dataset_csv(raw_data_dir=raw_data_dir, dataset_name=dataset_name)
+
+        mock_get_dataset_path.assert_called_once_with(raw_data_dir, dataset_name)
+        mock_check_file_exist.assert_called_once_with(csv_file_path)
+        mock_read_csv.assert_called_once_with(csv_file_path)
+        self.assertEqual(result, mock_df)
+
+    def test_read_dataset_csv_raises_value_error(self):
+        # Test when both csv_file_path and raw_data_dir/dataset_name are None
+        with self.assertRaises(ValueError):
+            file_utils.read_dataset_csv()
+
+    @patch('src.file_utils.check_file_exist', return_value=False)
+    def test_read_dataset_csv_raises_file_not_found(self, mock_check_file_exist):
+        # Simulate file not found scenario
+        raw_data_dir = "data/raw_data"
+        dataset_name = "nonexistent"
+        dataset_path = Path(raw_data_dir).joinpath(f'STARCOP_{dataset_name}')
+        csv_file_path = Path(dataset_path).joinpath(f'{dataset_name}.csv')
+
+        with self.assertRaises(FileNotFoundError):
+            file_utils.read_dataset_csv(raw_data_dir=raw_data_dir, dataset_name=dataset_name)
+
+        mock_check_file_exist.assert_called_once_with(csv_file_path)
