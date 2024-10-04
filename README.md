@@ -18,3 +18,4 @@ Use Python 3.11 for the current requirements.
 
 ## Contributors
 - [Prahar Ijner](https://github.com/pijner)
+- [Liam McAlpine](https://github.com/lpmcalpine)
