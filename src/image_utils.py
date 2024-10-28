@@ -15,6 +15,7 @@ def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
         np.ndarray: numpy array containing file contents. Assumes BGR format
     """
     return cv2.imread(file_path)
+    
 
 
 """
