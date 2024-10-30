@@ -20,3 +20,6 @@ Use Python 3.11 for the current requirements.
 - [Prahar Ijner](https://github.com/pijner)
 - [Kelvin Ying](https://github.com/KelvYing)
 - [Yasmeen Elkheir](https://github.com/yasmeene)
+- [Calista Besseling](https://github.com/CalistaBesseling)
+- [Harsh Patel](https://github.com/hpatel0816)
+- [Cristian Moretto](https://github.com/criscreates)
