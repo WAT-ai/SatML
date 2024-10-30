@@ -25,8 +25,5 @@ Use Python 3.11 for the current requirements.
 - [Kelvin Ying](https://github.com/KelvYing)
 - [Calista Besseling](https://github.com/CalistaBesseling)
 - [Harsh Patel](https://github.com/hpatel0816)
-<<<<<<< Updated upstream
-=======
 - [Cristian Moretto](https://github.com/criscreates)
->>>>>>> Stashed changes
 - [Michelle Yao](https://github.com/michellejyao)
