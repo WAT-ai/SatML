@@ -1,9 +1,7 @@
 # SatML
-
 Methane plume detection in hyper-spectral satellite images
 
 ## Setup
-
 Use Python 3.11 for the current requirements.
 
 - Clone the repo and navigate to the SatML directory
@@ -20,7 +18,6 @@ Use Python 3.11 for the current requirements.
   ```
 
 ## Contributors
-
 - [Prahar Ijner](https://github.com/pijner)
 - [Kelvin Ying](https://github.com/KelvYing)
 - [Calista Besseling](https://github.com/CalistaBesseling)
