@@ -26,3 +26,23 @@ class TestImageUtils(unittest.TestCase):
         mean, std_deviation = image_utils.varonRatio(S2, B2, c2)
         np.testing.assert_allclose(mean, calculated_mean2, rtol=1e-5)
         np.testing.assert_allclose(std_deviation, calculated_stddev2, rtol=1e-5)
+    
+    def test_binary_bbox(self):
+        binary_image = np.array([
+            [0, 0, 1, 1, 0],
+            [0, 1, 1, 0, 0],
+            [0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 1],
+            [1, 1, 0, 0, 0]
+        ]) 
+        expected_bboxes = np.array(
+            [
+                [[1, 0], [3, 0], [1, 1], [3, 1]],
+                [[4, 2], [4, 2], [4, 3], [4, 3]],
+                [[0, 3], [1, 3], [0, 4], [1, 4]],
+            ]
+        )
+        np.testing.assert_array_equal(image_utils.binary_bbox(binary_image), expected_bboxes)
+        # print(np.array2string(binary_bbox(binary_image), separator=', '))
+        # useful output formatter if we want to write more tests.
+        

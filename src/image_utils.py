@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from PIL import Image
+from skimage import measure
 import matplotlib.pyplot as plt
 from ipywidgets import interact
 
@@ -81,3 +82,33 @@ def varonRatio(S, B, c):
     std_deviation = np.std(ratio)
 
     return mean, std_deviation
+
+"""
+Generates a bounding box around each blob present within a binary label mask.
+The label mask may contain 0-n blobs, where n is the number of blobs present in the mask.
+
+Args:
+    label_mask (np.ndarray): 2D numpy array of 0s and 1s
+
+Returns:
+    np.ndarray: numpy array of bounding boxes, where each bounding box is represented 
+    as a tuple of (top-left, top-right, bottom-left, bottom-right), and each of these 
+    points is represented as a tuple of (x, y) coordinates.
+"""
+
+def binary_bbox(label_mask):
+    assert label_mask.ndim == 2, "labelMask must be a 2D numpy array"
+    
+    labelled_arr = measure.label(label_image=label_mask, connectivity=2)
+    bboxes = []
+    
+    for region in measure.regionprops(labelled_arr):
+        min_row, min_col, max_row, max_col = region.bbox
+        top_left = (min_col, min_row)
+        top_right = (max_col - 1, min_row)
+        bottom_left = (min_col, max_row - 1)
+        bottom_right = (max_col - 1, max_row - 1)
+        
+        bboxes.append((top_left, top_right, bottom_left, bottom_right))
+    
+    return np.array(bboxes)
