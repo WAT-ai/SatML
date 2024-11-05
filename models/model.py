@@ -1,44 +1,60 @@
-
+# define, compile, and train
 import rasterio
 import tensorflow as tf
 
-# load the hyperspectral image
-with rasterio.open(image_path) as src:
+def load_img(image_path):
+    # load the hyperspectral image
+    with rasterio.open(image_path) as src:
     # read all bands of the image
-    image_data = src.read()
-    # [channels, height, width] is returned
+        image_data = src.read()
+        # convert image data to a tensorflow tensor and reorders to: [height, weight, channels]
+        image_tensor = tf.convert_to_tensor(image_data.transpose(1,2,0))
+        print("image shape:", image_tensor.shape)
+        # [channels, height, width] is returned
+    return image_data.transpose(1,2,0)
 
-# convert image data to a tensorflow tensor and reorders to: [height, weight, channels]
-image_tensor = tf.convert_to_tensor(image_data.transpose(1,2,0))
+def create_model(img_shape):
+    model = tf.keras.Sequential([
+        # conv layer to capture spatial-spectral features
+        # (4,4) is the kernal size of the filter that slides over the input image
+        # 64 filters which allows to capture moer complex patterns
+        tf.keras.layers.Conv2D(64, (3, 3), activation='relu', img_shape=img_shape),
+        # reduce computational load, lot of pixels => large number of computations in each layer of the network, less memory needed
+        tf.keras.layers.MaxPooling2D((2, 2)),
 
-print("image shape:", image_tensor.shape)
+        # extracts features from the layer
+        # detects patterns in the data
+        #  
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(128, activation='relu'),
 
-# Get dimensions (assuming the image is in shape [height, width, channels])
-# The shape of an image is accessed by img.shape. It returns a tuple of the number of rows, columns, and channels (if the image is color):
-height, width, channels = image_tensor.shape
+        # final layer with x_left, x_right, y_top, y_bottom values
+        tf.keras.layers.Dense(4)
+        # layers are for predicting the bounding box coordinates 
+    ])
+    return model
 
-# do i need to know how to access a specific wavelength?
-# should i be finding the channel that corresponds to the wavelength that can detect methan emissions?
-# methane_gas_channel = image_tensor[:,:,10];
+# compiling the model
+# MSE penalizes large errors which in return minimizies coordinate errors
+# MAE provides a more direct measure of average error
+def compile_model(model):
+    model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+    return model
 
-# define model that takes in the specific methane-detecting band as input
-model_input_shape = (height, width, channels)
-# or model_input_shape = (image_tensor.shape[0], image_tensor.shape[1], methane_gas_channel)
+# training the model
+def train_model(model, X_train, y_train, epochs=10, batch_size=32, validation_split=0.2):
+    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_split=validation_split)
+    model.save("bounding_box_model.h5")  
+    return model
 
-model = tf.keras.Sequential([
-    # First Conv layer to capture spatial-spectral features
-    # (4,4) is the kernal size of the filter that slides over the input image
-    # 64 filters which allows to capture moer complex patterns
-    tf.keras.layers.Conv2D(64, (3, 3), activation='relu', input_shape=model_input_shape),
-    # reduce computational load, lot of pixels => large number of computations in each layer of the network, less memory needed
-    tf.keras.layers.MaxPooling2D((2, 2)),
+if __name__ == "__main__":
+    # load the image to get dimensions
+    image_path = "/SatML/data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/label_rgba.tif"
+    image_tensor = load_img(image_path)
+    
+    # stores the info in img_shape
+    img_shape = image_tensor.shape
 
-    # Flatten and fully connected layers for coordinate regression
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(128, activation='relu'),
-
-    # output layer with 4 units for x_left, x_right, y_top, y_bottom
-    tf.keras.layers.Dense(4) 
-])
-
-model.summary()
+    # call the funcs to create and compile the model
+    model = create_model(img_shape)
+    model = compile_model(model)
