@@ -82,15 +82,15 @@ def varonRatio(S, B, c):
 
     return mean, std_deviation
 
-def iou_metrics(true_bbox: tuple , pred_bbox: tuple, metric: str = "iou") -> float:
+def iou_metrics(true_bbox: tuple|list , pred_bbox: tuple|list , metric: str = "iou") -> float:
     """ Computing the specified IoU metric between two bounding boxes 
     
     Args:
         true_bbox:
-            tuple for the true bounding box, 
+            tuple|list for the true bounding box, 
             with format (t_left, t_right, t_top, t_bot) 
         pred_bbox: 
-            tuple for the predicted bounding box. 
+            tuple|list for the predicted bounding box. 
             with format ( p_left, p_right, p_top, p_bot)
         metrics: one of ["iou", "giou", "diou", "ciou"]:
         
@@ -162,7 +162,7 @@ def iou_metrics(true_bbox: tuple , pred_bbox: tuple, metric: str = "iou") -> flo
         
         return diou - alpha * v
     
-def compare_bbox(true_bbox: tuple , pred_bbox: tuple, metric: str = "iou") -> float:
+def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
     """ Wrapper function for iou_metrics function,verifying bounding boxes and metric.
 
     IoU is the basic metric used to find amount of overlap between bounding boxes. 
@@ -175,10 +175,10 @@ def compare_bbox(true_bbox: tuple , pred_bbox: tuple, metric: str = "iou") -> fl
     
     Args:
         true_bbox:
-            tuple for the true bounding box, 
+            tuple|list for the true bounding box, 
             with format (t_left, t_right, t_top, t_bot) 
         pred_bbox: 
-            tuple for the predicted bounding box. 
+            tuple|list for the predicted bounding box. 
             with format ( p_left, p_right, p_top, p_bot)
         metrics: one of ["iou", "giou", "diou", "ciou"]:
         
