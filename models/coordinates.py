@@ -1,8 +1,9 @@
 import tensorflow as tf
 import rasterio
 import numpy as np
-from model import create_model, compile_model
+from model import create_model, compile_model, train_model
 
+# model = train_model
 model = tf.keras.models.load_model("bounding_box_model.h5")
 
 def process_img(image_path):
@@ -18,24 +19,18 @@ def process_img(image_path):
 
 def predict_bounding_box(image_path):
     processed_img = process_img(image_path)
-    # stores the 4 values from the model to predictions
+    # stores 4 values from the model to predictions
     predicitions = model(processed_img)
     x_left, x_right, y_top, y_bottom = predicitions[0].numpy()
     return x_left, x_right, y_top, y_bottom
 
 if __name__ == "__main__":
-    image_path = "/SatML/data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/label_rgba.tif"
+    image_path = "./data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_640nm.tif"
     box = predict_bounding_box(image_path)
     print("predicted 4 value coordinates: ", box)
 
-# Get dimensions (assuming the image is in shape [height, width, channels])
-# The shape of an image is accessed by img.shape. It returns a tuple of the number of rows, columns, and channels (if the image is color):
-#height, width, channels = image_tensor.shape
-
-# define model that takes in the specific methane-detecting band as input
+# could define model that takes in the specific methane-detecting band as input
 #model_input_shape = (height, width, channels)
 # or model_input_shape = (image_tensor.shape[0], image_tensor.shape[1], methane_gas_channel)
-
-
 
 #model.summary()
