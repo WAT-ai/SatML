@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
 from ipywidgets import interact
+from typing import List, Tuple, Generator
 
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
@@ -81,3 +82,71 @@ def varonRatio(S, B, c):
     std_deviation = np.std(ratio)
 
     return mean, std_deviation
+
+
+
+def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    '''
+    Extract all .tif images and their labels data from a given directory
+
+    Args:
+        dir (str | os.PathLike): 
+        file_names: list[str]: A list of image file names (frequencies) to extract
+
+    Raises:
+        FileNotFoundError: raised if directory cannot be found
+
+    Returns:
+        Tuple[List[np.ndarray], List[np.ndarray]]:
+            - A list of the images stored as numpy float32 arrays
+            - A list of label data stored as numpy float32 arrays
+    '''
+    img_labels = ['label_rgba.tif', 'labelbinary.tif'] # Image label files to extract
+
+    if os.path.isdir(dir):
+        images, labels = [], []
+        for file in os.listdir(dir):
+            if file in file_names or file in img_labels:
+                file_path = os.path.join(dir, file)
+                try:
+                    data = np.array(Image.open(file_path), dtype=np.float32) # Store img/labels as float32 type array
+                    if file in file_names:
+                        images.append(data)
+                    else:
+                        labels.append(data)
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+
+        return images, labels
+    else:
+        raise FileNotFoundError(f"Unable to find the {dir} directory.")
+    
+
+def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray, np.ndarray], None, None]:
+    file_names = [
+        "TOA_AVIRIS_460nm.tif",
+        "TOA_AVIRIS_550nm.tif",
+        "TOA_AVIRIS_640nm.tif",
+        "TOA_AVIRIS_2004nm.tif",
+        "TOA_AVIRIS_2109nm.tif",
+        "TOA_AVIRIS_2310nm.tif",
+        "TOA_AVIRIS_2350nm.tif",
+        "TOA_AVIRIS_2360nm.tif",
+        "TOA_WV3_SWIR1.tif",
+        "TOA_WV3_SWIR2.tif",
+        "TOA_WV3_SWIR3.tif",
+        "TOA_WV3_SWIR4.tif",
+        "TOA_WV3_SWIR5.tif",
+        "TOA_WV3_SWIR6.tif",
+        "TOA_WV3_SWIR7.tif",
+        "TOA_WV3_SWIR8.tif"
+    ]
+    if os.path.isdir(dir):
+        for entry in os.listdir(dir):
+            sub_dir = os.path.join(dir, entry)
+            if os.path.isdir(sub_dir):
+                images, labels = load_image_set(sub_dir, file_names)
+                for image in images:
+                    yield image, labels[0], labels[1] # Each subdir has 2 labels only
+    else:
+        raise FileNotFoundError(f"Unable to find the {dir} directory.")
