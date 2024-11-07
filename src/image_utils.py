@@ -92,8 +92,7 @@ Args:
 
 Returns:
     np.ndarray: numpy array of bounding boxes, where each bounding box is represented 
-    as a tuple of (top-left, top-right, bottom-left, bottom-right), and each of these 
-    points is represented as a tuple of (x, y) coordinates.
+    as a tuple of (x-left, x-right, y-top, y-bottom).
 """
 
 def binary_bbox(label_mask):
@@ -104,11 +103,6 @@ def binary_bbox(label_mask):
     
     for region in measure.regionprops(labelled_arr):
         min_row, min_col, max_row, max_col = region.bbox
-        top_left = (min_col, min_row)
-        top_right = (max_col - 1, min_row)
-        bottom_left = (min_col, max_row - 1)
-        bottom_right = (max_col - 1, max_row - 1)
-        
-        bboxes.append((top_left, top_right, bottom_left, bottom_right))
+        bboxes.append((min_col, (max_col - 1), min_row, (max_row - 1)))
     
     return np.array(bboxes)
