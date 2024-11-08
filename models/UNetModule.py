@@ -82,7 +82,7 @@ class UNet():
         The decoder/sampler is a series of upsample blocks.
         """
 
-        base_model = tf.keras.applications.MobileNetV2(input_shape=[128, 128, 3], include_top=False)
+        base_model = tf.keras.applications.MobileNetV2(input_shape=[128, 128, self.output_channels], include_top=False, weights=None)
 
         # Use the activations of these layers
         layer_names = [
@@ -106,7 +106,7 @@ class UNet():
             self.upsample(64, 3),   # 32x32 -> 64x64
         ]
 
-        inputs = tf.keras.layers.Input(shape=[128, 128, 3])
+        inputs = tf.keras.layers.Input(shape=[128, 128, self.output_channels])
 
         # Downsampling through the model
         skips = down_stack(inputs)
