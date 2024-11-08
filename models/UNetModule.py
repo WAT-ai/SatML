@@ -2,6 +2,18 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+class Augment(tf.keras.layers.Layer):
+  def __init__(self, seed=42):
+    super().__init__()
+    # both use the same seed, so they'll make the same random changes.
+    self.augment_inputs = tf.keras.layers.RandomFlip(mode="horizontal", seed=seed)
+    self.augment_labels = tf.keras.layers.RandomFlip(mode="horizontal", seed=seed)
+
+  def call(self, inputs, labels):
+    inputs = self.augment_inputs(inputs)
+    labels = self.augment_labels(labels)
+    return inputs, labels
+
 class UNet():
     """
     Image segmentation module that trains a U-Net model. Adapted from https://www.tensorflow.org/tutorials/images/segmentation.
@@ -132,6 +144,7 @@ class UNet():
           .shuffle(buffer_size)
           .batch(batch_size)
           .repeat()
+          .map(Augment())
           .prefetch(buffer_size=tf.data.AUTOTUNE))
        
        val_batches = val_images.batch(batch_size)
