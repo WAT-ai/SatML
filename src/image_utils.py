@@ -85,7 +85,7 @@ def varonRatio(S, B, c):
 
 
 
-def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.ndarray, np.ndarray]:
     '''
     Extract all .tif images and their labels data from a given directory
 
@@ -101,7 +101,7 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[List[
             - A list of the images stored as numpy float32 arrays
             - A list of label data stored as numpy float32 arrays
     '''
-    img_labels = ['label_rgba.tif', 'labelbinary.tif'] # Image label files to extract
+    img_labels = ['labelbinary.tif']  # Image label files to extract
 
     if os.path.isdir(dir):
         images, labels = [], []
@@ -117,12 +117,12 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[List[
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
 
-        return images, labels
+        return np.array(images), np.array(labels)
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
     
 
-def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray, np.ndarray], None, None]:
+def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     file_names = [
         "TOA_AVIRIS_460nm.tif",
         "TOA_AVIRIS_550nm.tif",
@@ -146,7 +146,6 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
                 images, labels = load_image_set(sub_dir, file_names)
-                for image in images:
-                    yield image, labels[0], labels[1] # Each subdir has 2 labels only
+                yield images, labels
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
