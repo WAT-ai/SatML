@@ -25,3 +25,4 @@ Use Python 3.11 for the current requirements.
 - [Sarah Ali](https://github.com/sarahmakki12)
 - [Madeline Kim](https://github.com/madelineekim)
 - [Cristian Moretto](https://github.com/criscreates)
+- [Michelle Yao](https://github.com/michellejyao)
