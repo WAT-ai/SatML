@@ -22,11 +22,6 @@ class UNet():
     def __init__(self, output_channels):
         self.output_channels = output_channels
         self.model = self.unet_model()
-
-    def normalize(self, input_image):
-        # normalize image color values to [0, 1]
-        input_image = tf.cast(input_image, tf.float32) / 255.0
-        return input_image
     
     def load_image(self, datapoint):
         # resize images to 128 x 128 pixels
@@ -36,8 +31,6 @@ class UNet():
             (128, 128),
             method = tf.image.ResizeMethod.NEAREST_NEIGHBOR,
         )
-
-        input_image = self.normalize(input_image)
 
         return input_image, input_mask
     
