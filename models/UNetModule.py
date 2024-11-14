@@ -7,12 +7,10 @@ class Augment(tf.keras.layers.Layer):
     super().__init__()
     # both use the same seed, so they'll make the same random changes.
     self.augment_inputs = keras.Sequential([
-      tf.keras.layers.RandomFlip(mode="horizontal", seed=seed),
-      tf.keras.layers.RandomFlip(mode="vertical", seed=seed)
+      tf.keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed)
     ])
     self.augment_labels = keras.Sequential([
-      tf.keras.layers.RandomFlip(mode="horizontal", seed=seed),
-      tf.keras.layers.RandomFlip(mode="vertical", seed=seed)
+      tf.keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed)
     ])
 
   def call(self, inputs, labels):
@@ -25,8 +23,8 @@ class UNet():
     Image segmentation module that trains a U-Net model. Adapted from https://www.tensorflow.org/tutorials/images/segmentation.
     """
 
-    def __init__(self, output_channels):
-        self.output_channels = output_channels
+    def __init__(self, input_channels):
+        self.input_channels = input_channels
         self.model = self.unet_model()
     
     def load_image(self, datapoint):
@@ -81,7 +79,7 @@ class UNet():
         The decoder/sampler is a series of upsample blocks.
         """
 
-        base_model = tf.keras.applications.MobileNetV2(input_shape=[128, 128, self.output_channels], include_top=False, weights=None)
+        base_model = tf.keras.applications.MobileNetV2(input_shape=[128, 128, self.input_channels], include_top=False, weights=None)
 
         # Use the activations of these layers
         layer_names = [
@@ -105,7 +103,7 @@ class UNet():
             self.upsample(64, 3),   # 32x32 -> 64x64
         ]
 
-        inputs = tf.keras.layers.Input(shape=[128, 128, self.output_channels])
+        inputs = tf.keras.layers.Input(shape=[128, 128, self.input_channels])
 
         # Downsampling through the model
         skips = down_stack(inputs)
@@ -120,7 +118,7 @@ class UNet():
 
         # This is the last layer of the model
         last = tf.keras.layers.Conv2DTranspose(
-            filters=self.output_channels, kernel_size=3, strides=2,
+            filters=self.input_channels, kernel_size=3, strides=2,
             padding='same')  #64x64 -> 128x128
 
         x = last(x)
