@@ -1,4 +1,4 @@
-import csv
+import pandas as pd
 
 def get_easy_ids(file_path):
     """
@@ -10,13 +10,13 @@ def get_easy_ids(file_path):
     Returns:
         list: A list of IDs where the difficulty is 'easy'.
     """
-    easy_ids = []
     try:
-        with open(file_path, 'r') as csv_file:
-            reader = csv.DictReader(csv_file)
-            for row in reader:
-                if row['difficulty'].strip().lower() == 'easy':
-                    easy_ids.append(row['id'])
+        # Read the CSV file into a pandas DataFrame
+        df = pd.read_csv(file_path)
+        
+        # Filter rows where 'difficulty' is 'easy' (case-insensitive)
+        easy_ids = df.loc[df['difficulty'].str.lower().str.strip() == 'easy', 'id'].tolist()
+        
     except Exception as e:
         raise ValueError(f"Error reading the file: {e}")
     
