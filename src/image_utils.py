@@ -109,11 +109,12 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.nd
             if file in file_names or file in img_labels:
                 file_path = os.path.join(dir, file)
                 try:
-                    data = np.array(Image.open(file_path), dtype=np.float32) # Store img/labels as float32 type array
-                    if file in file_names:
-                        images.append(data)
-                    else:
-                        labels.append(data)
+                    with Image.open(file_path) as img:
+                        data = np.array(img, dtype=np.float32) # Store img/labels as float32 type array
+                        if file in file_names:
+                            images.append(data)
+                        else:
+                            labels.append(data)
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
 
