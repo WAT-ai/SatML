@@ -26,3 +26,10 @@ class TestImageUtils(unittest.TestCase):
         mean, std_deviation = image_utils.varonRatio(S2, B2, c2)
         np.testing.assert_allclose(mean, calculated_mean2, rtol=1e-5)
         np.testing.assert_allclose(std_deviation, calculated_stddev2, rtol=1e-5)
+    
+    def test_varon_iteration_easy(self):
+        mean, std_deviation = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", "tests/varon.npy", 2, 1)
+        print(mean)
+        print(std_deviation)
+        data = np.load("tests/varon.npy")
+        print(data) 
