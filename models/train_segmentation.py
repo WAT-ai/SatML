@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from UNetModule import UNet
 
-def train_segmentation(train_x, train_y, test_x, test_y, output_channels, epochs):
+def train_segmentation(train_x, train_y, test_x, test_y, input_channels, num_classes, epochs):
     """Script to train U-Net segmentation model given numpy arrays containing train and test images and labels.
 
     Images are in n, h, w, c format (float32).
@@ -26,13 +26,14 @@ def train_segmentation(train_x, train_y, test_x, test_y, output_channels, epochs
     test_dataset = tf.data.Dataset.from_tensor_slices({"image": test_x_norm, "segmentation_mask": test_y_chan})
 
     # Train model
-    unet = UNet(output_channels)
+    unet = UNet(input_channels, num_classes)
     unet.train(train_dataset, test_dataset, epochs=epochs)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-data_path', '--data_path', type=str, default='/SatML/data/np_data')
-    parser.add_argument('-output_channels', '--output_channels', type=int, default=16)
+    parser.add_argument('-data_path', '--data_path', type=str, default='/home/sarahmakki12/SatML/data/np_data')
+    parser.add_argument('-input_channels', '--input_channels', type=int, default=16)
+    parser.add_argument('-num_classes', '--num_classes', type=int, default=2)
     parser.add_argument('-epochs', '--epochs', type=int, default=20)
     args = parser.parse_args()
 
@@ -43,4 +44,4 @@ if __name__ == '__main__':
     test_y = np.load(f'{args.data_path}/test_y.npy')
 
     # Train model
-    train_segmentation(train_x, train_y, test_x, test_y, args.output_channels, args.epochs)
+    train_segmentation(train_x, train_y, test_x, test_y, args.input_channels, args.num_classes, args.epochs)

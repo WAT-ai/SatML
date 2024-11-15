@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+from matplotlib import pyplot as plt
 
 class Augment(tf.keras.layers.Layer):
   def __init__(self, seed=42):
@@ -23,8 +24,9 @@ class UNet():
     Image segmentation module that trains a U-Net model. Adapted from https://www.tensorflow.org/tutorials/images/segmentation.
     """
 
-    def __init__(self, input_channels):
+    def __init__(self, input_channels, num_classes):
         self.input_channels = input_channels
+        self.num_classes = num_classes
         self.model = self.unet_model()
     
     def load_image(self, datapoint):
@@ -118,7 +120,7 @@ class UNet():
 
         # This is the last layer of the model
         last = tf.keras.layers.Conv2DTranspose(
-            filters=self.input_channels, kernel_size=3, strides=2,
+            filters=self.num_classes, kernel_size=3, strides=2,
             padding='same')  #64x64 -> 128x128
 
         x = last(x)
@@ -157,11 +159,30 @@ class UNet():
        
        return model_history
     
-    def predict(self, test_dataset, batch_size=64):
-       test_images = test_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
-       test_batches = test_images.batch(batch_size)
+    def display(self, display_list):
+        plt.figure(figsize=(15, 15))
 
-       for image, mask in test_batches.take(1):
-          pred_mask = self.model.predict(image)
-          # display prediction?
+        title = ['True Mask', 'Predicted Mask']
+
+        for i in range(len(display_list)):
+            plt.subplot(1, len(display_list), i+1)
+            plt.title(title[i])
+            plt.imshow(tf.keras.utils.array_to_img(display_list[i]))
+            plt.axis('off')
+        plt.show()
+
+    def create_mask(self, prediction):
+        pred_mask = tf.math.softmax(prediction, axis=-1)
+        pred_mask = tf.math.argmax(pred_mask, axis=-1)
+        pred_mask = pred_mask[..., tf.newaxis]
+        return pred_mask[0]
+
+    def predict(self, test_dataset, batch_size=64, num=1):
+        test_images = test_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
+        test_batches = test_images.batch(batch_size)
+
+        for image, mask in test_batches.take(num):
+            prediction = self.model.predict(image)
+            pred_mask = self.create_mask(prediction)
+            self.display([mask[0], pred_mask])
        
