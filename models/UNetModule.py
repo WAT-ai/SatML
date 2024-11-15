@@ -4,15 +4,25 @@ from tensorflow import keras
 from matplotlib import pyplot as plt
 
 class Augment(tf.keras.layers.Layer):
-  def __init__(self, seed=42):
+  def __init__(self, flip=True, rotate=True, crop=False, seed=42):
     super().__init__()
     # both use the same seed, so they'll make the same random changes.
-    self.augment_inputs = keras.Sequential([
-      tf.keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed)
-    ])
-    self.augment_labels = keras.Sequential([
-      tf.keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed)
-    ])
+    self.augment_inputs = keras.Sequential()
+    self.augment_labels = keras.Sequential()
+
+    if flip:
+        self.augment_inputs.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
+        self.augment_labels.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
+
+    if rotate:
+        self.augment_inputs.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
+        self.augment_labels.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
+
+    if crop:
+        self.augment_inputs.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
+        self.augment_inputs.add(keras.layers.Resizing(height=128, width=128))
+        self.augment_labels.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
+        self.augment_labels.add(keras.layers.Resizing(height=128, width=128))
 
   def call(self, inputs, labels):
     inputs = self.augment_inputs(inputs)
