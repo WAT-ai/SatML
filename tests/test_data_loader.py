@@ -1,11 +1,11 @@
 import tensorflow as tf
 import unittest
-from data_loader import create_dataset 
+from src import data_loader
 
 class TestCreateDataset(unittest.TestCase):
     def test_dataset_creation(self):
         # Create the dataset
-        dataset = create_dataset()
+        dataset = data_loader.create_dataset()
         
         # Check if dataset is a tf.data.Dataset instance
         self.assertIsInstance(dataset, tf.data.Dataset, "Expected a tf.data.Dataset instance")
