@@ -28,8 +28,7 @@ class TestImageUtils(unittest.TestCase):
         np.testing.assert_allclose(std_deviation, calculated_stddev2, rtol=1e-5)
     
     def test_varon_iteration_easy(self):
-        mean, std_deviation = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", "tests/varon.npy", 2, 1)
-        print(mean)
-        print(std_deviation)
+        compute_matrix = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", "tests/varon.npy", 2, 1)
+        print(compute_matrix)
         data = np.load("tests/varon.npy")
-        print(data) 
+        np.testing.assert_array_equal(data, compute_matrix) 
