@@ -1,6 +1,0 @@
-{
-    "./data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_460nm.tif": [15, 90, 80, 10],
-    "./data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_550nm.tif": [20, 80, 100, 15],
-    "./data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_640nm.tif": [20, 80, 100, 15],
-    "./data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_2004nm.tif": [5, 95, 95, 20]
-  }
