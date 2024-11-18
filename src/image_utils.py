@@ -87,7 +87,7 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_fol
     if num_folders is not None:
         all_folders = all_folders[:num_folders]
 
-    for image_folder in os.listdir(dir_path):
+    for image_folder in all_folders:
         folder_path = os.path.join(dir_path, image_folder)
         
         if not os.path.isdir(folder_path):
