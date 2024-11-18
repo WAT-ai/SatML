@@ -124,6 +124,26 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.nd
     
 
 def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+    """
+    Load images and their labels from subdirectories of a specified directory.
+
+    Args:
+        dir (str | os.PathLike): Path to the base directory containing image subdirectories.
+
+    Yields:
+        Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
+            - The first element is a NumPy array of images.
+            - The second element is a NumPy array of labels.
+
+    Raises:
+        FileNotFoundError: If the specified directory does not exist.
+
+    Notes:
+        - The `file_names` list specifies the expected image files to be processed.
+        - The `load_image_set` function is used to load and convert image and label data.
+        - Each yielded tuple corresponds to a batch of images and labels from a subdirectory.
+    """
+
     file_names = [
         "TOA_AVIRIS_460nm.tif",
         "TOA_AVIRIS_550nm.tif",
