@@ -1,9 +1,19 @@
 import unittest
+import numpy as np
+from pathlib import Path
 
 from src import image_utils
-import numpy as np
 
 class TestImageUtils(unittest.TestCase):
+    def setUp(self):
+        self.files_to_remove = []
+        return super().setUp()
+
+    def tearDown(self):
+        for file_to_remove in self.files_to_remove:
+            Path(file_to_remove).unlink()
+
+        return super().tearDown()
 
     def test_basicTest(self):
         S1 = np.array([[0.1, 0.2, 0.3], [0.15, 0.25, 0.35], [0.2, 0.3, 0.4]])
@@ -29,6 +39,7 @@ class TestImageUtils(unittest.TestCase):
     
     def test_varon_iteration_easy(self):
         compute_matrix = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", "tests/varon.npy", 2, 1)
+        self.files_to_remove.append('tests/varon.npy')
         print(compute_matrix)
         data = np.load("tests/varon.npy")
         np.testing.assert_array_equal(data, compute_matrix) 
