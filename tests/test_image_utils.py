@@ -37,9 +37,19 @@ class TestImageUtils(unittest.TestCase):
         np.testing.assert_allclose(mean, calculated_mean2, rtol=1e-5)
         np.testing.assert_allclose(std_deviation, calculated_stddev2, rtol=1e-5)
     
+    
+    """
+    Here's the link to the google sheet used to create the correct_matrix:
+    https://docs.google.com/spreadsheets/d/1ibQIVitjaxNGXof7cjM9m5XKFG8H756YdaG6zqICUpI/edit?usp=sharing
+    """
     def test_varon_iteration_easy(self):
-        compute_matrix = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", "tests/varon.npy", 2, 1)
-        self.files_to_remove.append('tests/varon.npy')
-        print(compute_matrix)
-        data = np.load("tests/varon.npy")
-        np.testing.assert_array_equal(data, compute_matrix) 
+        compute_matrix = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", "tests/varon.npy", 2, 3, 3, 5)
+        self.files_to_remove.append('tests/varon.npy') 
+        
+        image_utils.createTestMatrix()
+        correct_matrix = np.load("tests/varon_correct.npy")
+        self.files_to_remove.append('tests/varon_correct.npy') 
+
+        np.testing.assert_almost_equal(correct_matrix, compute_matrix, decimal=6) 
+    
+

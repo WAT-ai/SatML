@@ -40,10 +40,14 @@ def remove_outliers_with_zscore(data, threshold):
     mean = np.mean(flat_data)
     std_dev = np.std(flat_data)
 
-    z_scores = (flat_data - mean) / std_dev
+    if (std_dev != 0):
+       z_scores = (flat_data - mean) / std_dev
+    else:
+       z_scores = 0
+
     return flat_data[np.abs(z_scores) < threshold]
 
-def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_folders: Optional[int]=None):
+def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_images: int, num_folders: Optional[int]=None, pixels: Optional[int]= 255):
     """
     consumes a path to a directory (easy training), and name of the output file. For each
     folder of images, it computes the varon ratio between each image creating
@@ -80,8 +84,6 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_fol
         "TOA_WV3_SWIR7.tif",
         "TOA_WV3_SWIR8.tif"]
 
-    num_images = len(image_file_names)
-
     all_folders = os.listdir(dir_path)
     
     if num_folders is not None:
@@ -100,8 +102,10 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_fol
             
             with Image.open(img_path) as img_data:
                 img_array = np.array(img_data)
-                hyperspectral_images.append(img_array)
-                image_prime_sums.append(np.sum(remove_outliers_with_zscore(img_array, c_threshold)))
+                img_subset = img_array[:pixels, :pixels]
+                hyperspectral_images.append(img_subset)
+                image_prime_sums.append(np.sum(remove_outliers_with_zscore(img_subset, c_threshold)))
+            
 
         
         current_matrix = np.zeros((num_images, num_images)) 
@@ -115,7 +119,10 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_fol
 
                 # calculate c: note! S/B_prime are 1D arrays
                 B_prime_sum = image_prime_sums[j]
-                c = S_prime_sum / B_prime_sum
+                if(B_prime_sum != 0):
+                   c = S_prime_sum/B_prime_sum
+                else:
+                   c = 1
 
                 mean, _ = varonRatio(S, B, c)
                 current_matrix[k, j] = mean
@@ -126,6 +133,22 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_fol
     np.save(output_file, final_matrix)
 
     return final_matrix
+
+def createTestMatrix():
+
+        data = np.array([
+            [[0, -0.2104005415, -0.4138471552],
+            [-0.2104005415, 0, -0.2586695576],
+            [-0.4138471552, -0.2586695576, 0]],
+            [[0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0]],
+            [[0, -0.2246186874, -0.3063050874],
+            [-0.2246186874, 0, -0.1064981483],
+            [-0.3063050874, -0.1064981483, 0]]
+        ])
+
+        np.save("tests/varon_correct.npy", data)
     
     
   
