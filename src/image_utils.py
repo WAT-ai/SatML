@@ -5,6 +5,9 @@ from skimage import measure
 import matplotlib.pyplot as plt
 from ipywidgets import interact
 import math
+from keras_cv import losses
+
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     """
@@ -107,135 +110,78 @@ def binary_bbox(label_mask):
     
     return np.array(bboxes)
 
-def iou_metrics(true_bbox: tuple|list , pred_bbox: tuple|list , metric: str = "iou") -> float:
-    """ Computing the specified IoU metric between two bounding boxes 
-    
-    Args:
-        true_bbox:
-            tuple|list for the true bounding box, 
-            with format (t_left, t_right, t_top, t_bot) 
-        pred_bbox: 
-            tuple|list for the predicted bounding box. 
-            with format ( p_left, p_right, p_top, p_bot)
-        metrics: one of ["iou", "giou", "diou", "ciou"]:
-        
-    Returns:
-        float: The similarity between true and pred bounding box. 
-            iou will return a value between 0 and 1. 
-            others will return a value between -1 and 1
-    """
-    
-    #unpack values
-    t_left, t_right, t_top, t_bot = true_bbox
-    p_left, p_right, p_top, p_bot = pred_bbox
-    
-    # Calculate intersection area
-    inter_x_l = max(t_left , p_left)
-    inter_x_r = min(t_right , p_right)
-    inter_y_t = max(t_top , p_top)
-    inter_y_b = min(t_bot , p_bot)
-    interArea = max(0, inter_x_r - inter_x_l) * max(0, inter_y_b - inter_y_t)
-    
-    # Calculate area of both boxes
-    true_area = max(0, t_right - t_left) * max(0, t_bot - t_top)
-    pred_area = max(0, p_right - p_left) * max(0, p_bot - p_top)
-    union_area =  (true_area + pred_area - interArea)
-    
-    # Calculate iou 
-    iou = interArea / union_area if union_area != 0 else 0  
-    
-    if metric == 'iou':
-        return iou
-    
-    # Find bounds of minimum sized box to enclose both area
-    enclose_x_l = min(t_left , p_left)
-    enclose_x_r = max(t_right , p_right)
-    enclose_y_b = max(t_bot , p_bot)
-    enclose_y_t = min(t_top, p_top)
-   
-    # calculate giou. 
-    if metric == 'giou': 
-        encloseArea = max(0, enclose_x_r - enclose_x_l) * max(0, enclose_y_b - enclose_y_t )
-        giou = iou - ( (encloseArea - union_area) / encloseArea) if encloseArea != 0 else iou
-        return giou
-    
-    # Calculate the euclidean distnace between each box's centers, and also the diagonal of enclosed box
-    pred_center = np.array([(p_top + p_bot) / 2 , (p_left + p_right) / 2])
-    true_center =  np.array([(t_top + t_bot) / 2 , (t_left + t_right) / 2])
-    euclidean_dist = np.linalg.norm(true_center - pred_center)
-    enclose_diag =  np.linalg.norm([enclose_y_b - enclose_y_t , enclose_x_r - enclose_x_l  ])
-    
-    # calculate diou
-    diou = iou - ((euclidean_dist ** 2 ) / (enclose_diag ** 2)) if enclose_diag != 0 else iou
-    if metric == 'diou':
-        return diou
-    
-    # calculate ciou
-    if metric == 'ciou':
-        # get width and heights of bounding boxes and calculate ratios
-        pred_width = p_right - p_left
-        pred_height = p_bot - p_top
-        true_width = t_right - t_left
-        true_height = t_bot - t_top
-        pred_ratio = pred_width / pred_height if pred_height != 0 else 0
-        true_ratio = true_width / true_height if true_height != 0 else 0
-        
-        # Calculate v and alpha values for aspect ratio
-        arctan = math.atan(pred_ratio) - math.atan(true_ratio)
-        v = 4 * ((arctan / math.pi)**2)
-        alpha = v / ((1 - iou) + v) if ((1 - iou) + v) != 0 else 0
-        
-        return diou - alpha * v
+
     
 def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
-    """ Wrapper function for iou_metrics function,verifying bounding boxes and metric.
+    """ Wrapper function for iou_metrics function, verifying bounding boxes and metric.
 
     IoU is the basic metric used to find amount of overlap between bounding boxes. 
     
     GIoU improves IoU by considering distance between boxes when they don't overlap. 
-    
-    DIoU considers vertical and horizontal orientation and often converges faster than the pior two. 
-    
+        
     CIoU is DIoU except adding the ability to consider the aspect ratio of the bounding boxes.
     
     Args:
         true_bbox:
-            tuple|list for the true bounding box, 
-            with format (t_left, t_right, t_top, t_bot) 
+            2d-list|2d-np nparray for the true bounding box, 
+            with format [[t_left, t_top, t_right, t_bot], [...], ...]
         pred_bbox: 
-            tuple|list for the predicted bounding box. 
-            with format ( p_left, p_right, p_top, p_bot)
-        metrics: one of ["iou", "giou", "diou", "ciou"]:
+            2d-list|2d-np nparray for the predicted bounding box. 
+            with format [[p_left, p_top, p_right, p_bot], [...], ...]
+        metrics: one of ["iou", "giou", "ciou"]:
         
     Returns:
-        float: The similarity between true and pred bounding box. 
-            iou will return a value between 0 and 1. 
-            others will return a value between -1 and 1.
-            The higher the better.
+        float: The similarity loss between true and pred bounding box. 
+            iou_loss will return a value between 0 and 1. 
+            other losses will return a value between 0 and 2.
+            The lower the better.
        
     """
     # check for correct type
-    if metric not in ["iou", "giou", "diou", "ciou"]:
+    if metric not in ["iou", "giou", "ciou"]:
         raise ValueError(
         'Unknown type {}, not iou/diou'.format(metric))
     
-    # make sure boxes are of length
-    assert len(true_bbox) == 4
-    assert len(pred_bbox) == 4
+    # Convert inputs to NumPy arrays if they are not already
+    true_bbox = np.array(true_bbox) if not isinstance(true_bbox, np.ndarray) else true_bbox
+    pred_bbox = np.array(pred_bbox) if not isinstance(pred_bbox, np.ndarray) else pred_bbox
     
-    # unpack values
-    t_left, t_right, t_top, t_bot = true_bbox
-    p_left, p_right, p_top, p_bot = pred_bbox
+    # Ensure inputs are 2D arrays
+    if true_bbox.ndim != 2 or pred_bbox.ndim != 2:
+        raise ValueError("Bounding boxes must be 2D arrays.")
     
-    # Check valid values of bounding box
-    if t_left >= t_right or t_top >= t_bot:
-        raise ValueError('Invalid bounding box: true_bbox')
-    if p_left >= p_right or p_top >= p_bot:
-        raise ValueError('Invalid bounding box: pred_bbox')
+    # Ensure each bounding box has four coordinates (x_min, y_min, x_max, y_max)
+    if true_bbox.shape[1] != 4 or pred_bbox.shape[1] != 4:
+        raise ValueError("Each bounding box must have exactly four coordinates.")
     
-    # Check for valid input format
-    if not all(isinstance(coord, (int, float)) for coord in true_bbox + pred_bbox):
-        raise ValueError("All coordinates in true_bbox and pred_bbox must be either int or float.")
+    # Validate each bounding box
+    for bbox in true_bbox:
+        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+            raise ValueError(f"Invalid bounding box: {bbox} in true_bbox")
+    for bbox in pred_bbox:
+        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+            raise ValueError(f"Invalid bounding box: {bbox} in pred_bbox")
     
-    iou_value = iou_metrics(true_bbox, pred_bbox, metric)
+    # Ensure bounding boxes contain valid numeric types (int or float)
+    if not (np.issubdtype(true_bbox.dtype, np.integer) or np.issubdtype(true_bbox.dtype, np.floating)):
+        raise TypeError("true_bbox must contain int or float values.")
+    if not (np.issubdtype(pred_bbox.dtype, np.integer) or np.issubdtype(pred_bbox.dtype, np.floating)):
+        raise TypeError("pred_bbox must contain int or float values.")
+    
+    # get the loss function values
+    iou_value = None
+    if metric == 'iou':
+        loss = losses.IoULoss("XYXY", "linear")
+        iou_value = loss(true_bbox, pred_bbox).numpy()
+    if metric == 'giou': 
+        loss = losses.GIoULoss("XYXY")
+        iou_value = loss(true_bbox, pred_bbox).numpy()
+    if metric == 'ciou':
+        loss = losses.CIoULoss("XYXY")
+        iou_value = loss(true_bbox, pred_bbox).numpy()
+        
     return iou_value
+
+if __name__ == '__main__':
+    res = compare_bbox([[1, 1, 3, 4]], [[900, 400, 1000, 800]], "giou")
+    print(res)

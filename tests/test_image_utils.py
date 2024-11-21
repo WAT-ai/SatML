@@ -48,70 +48,58 @@ class TestImageUtils(unittest.TestCase):
         
 
 class TestIOUFunctions(unittest.TestCase):
+    
     def test_iou(self):
-        # Test perfect overlap (IOU = 1)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (1, 3, 1, 4), "iou")
-        self.assertAlmostEqual(result, 1.0, places=4)
+        # Test perfect overlap (loss = 0)
+        result = image_utils.compare_bbox([[1,1,3,4]], [[1,1,3,4]], "iou")
+        self.assertAlmostEqual(result, 0, places=4)
 
-        # Test partial overlap
-        result = image_utils.iou_metrics((1, 3, 1, 4), (2, 4, 2, 5), "iou") 
-        self.assertAlmostEqual(result, 0.2, places=4)
+        # Test partial overlap 
+        result = image_utils.compare_bbox([[1,1,3,4]], [[2,2,4,5]], "iou") 
+        self.assertAlmostEqual(result, 0.8, places=4)
 
-        # Test non-overlapping boxes (IOU = 0)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (4, 6, 5, 7), "iou")
-        self.assertEqual(result, 0)
-
-    def test_diou(self):
-        # Test perfect overlap (DIoU = 1)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (1, 3, 1, 4), "diou")
-        self.assertAlmostEqual(result, 1.0, places=4)
-        
-        # Test DIoU with partial overlap
-        result = image_utils.iou_metrics((1, 3, 1, 4), (2, 4, 2, 5), "diou")
-        self.assertTrue(-1 <= result <= 1)
-
-        # Test non-overlapping boxes (DIoU <= 0)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (4, 6, 5, 7), "diou")
-        self.assertTrue(result <= 0)
+        # Test non-overlapping boxes (loss = 1)
+        result = image_utils.compare_bbox([[1,1,3,4]], [[4,5,6,7]], "iou")
+        self.assertEqual(result, 1)
         
     def test_giou(self):
-        # Test perfect overlap (GIoU = 1)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (1, 3, 1, 4), "giou")
-        self.assertAlmostEqual(result, 1.0, places=4)
+        # Test perfect overlap (GIoU = 0)
+        result = image_utils.compare_bbox([[1,1,3,4]], [[1,1,3,4]], "giou")
+        self.assertAlmostEqual(result, 0, places=4)
         
         # Test GIoU with partial overlap
-        result = image_utils.iou_metrics((1, 3, 4, 1), (2, 4, 5, 2), "giou")
+        result = image_utils.compare_bbox([[1,1,3,4]], [[2,2,4,5]], "giou")
         self.assertTrue(-1 <= result <= 1)
         
         # Test non-overlapping boxes (GIoU <= 0)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (4, 6, 5, 7), "giou")
-        self.assertTrue(result <= 0)
+        result = image_utils.compare_bbox([[1,1,3,4]], [[4,5,6,7]], "giou")
+        self.assertTrue(result >= 1 and result <= 2)
         
     def test_ciou(self):
         # Test perfect overlap (CIoU = 1)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (1, 3, 1, 4), "ciou")
-        self.assertAlmostEqual(result, 1.0, places=4)
+        result = image_utils.compare_bbox([[1,1,3,4]], [[1,1,3,4]], "ciou")
+        self.assertAlmostEqual(result, 0, places=4)
         
         # Test CIoU with partial overlap
-        result = image_utils.iou_metrics((1, 3, 1, 4), (2, 4, 2, 5), "ciou")
+        result = image_utils.compare_bbox([[1,1,3,4]], [[2,2,4,5]], "ciou")
         self.assertTrue(-1 <= result <= 1)
 
         # Test non-overlapping boxes (CIoU <= 0)
-        result = image_utils.iou_metrics((1, 3, 1, 4), (4, 6, 5, 7), "ciou")
-        self.assertTrue(result <= 0)
+        result = image_utils.compare_bbox([[1,1,3,4]], [[4,5,6,7]], "ciou")
+        self.assertTrue(result >= 1 and result <= 2)
 
 class TestCompareBBox(unittest.TestCase):
     def test_compare_bbox_invalid_len(self):
-        with self.assertRaises(AssertionError):
-            image_utils.compare_bbox((1, 3, 1, 4, 4), (4, 6, 5, 7), "diou")
+        with self.assertRaises(ValueError):
+            image_utils.compare_bbox([[1,1,3,4,4],[1, 1, 3, 4, 4]], [[4,5,6,7,2],[4,5,6,7,5]], "giou")
 
     def test_invalid_bbox_coord(self):
         with self.assertRaises(ValueError):
-            image_utils.compare_bbox((1, 1, 1, 4), (2, 4, 2, 5), "ciou")
+            image_utils.compare_bbox([[1, 1, 1, 4]], [[2,4,2,5]], "ciou")
 
     def test_invalid_metric(self):
         with self.assertRaises(ValueError):
-            image_utils.compare_bbox((1, 3, 1, 4), (4, 6, 5, 7), "invalid_metric")
+            image_utils.compare_bbox([[1,1,3,4]], [[4,5,6,7]], "invalid_metric")
             
     def test_invalid_format(self):
         with self.assertRaises(ValueError):
