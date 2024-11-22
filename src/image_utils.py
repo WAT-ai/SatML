@@ -7,8 +7,6 @@ from ipywidgets import interact
 import math
 from keras_cv import losses
 
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     """
     reads a tiff file to a numpy array
