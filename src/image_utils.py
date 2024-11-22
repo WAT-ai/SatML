@@ -47,7 +47,7 @@ def remove_outliers_with_zscore(data, threshold):
 
     return flat_data[np.abs(z_scores) < threshold]
 
-def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_images: int, num_folders: Optional[int]=None, pixels: Optional[int]= 255):
+def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_bands: int, images: Optional[np.ndarray]=None, pixels: Optional[int]= 255):
     """
     consumes a path to a directory (easy training), and name of the output file. For each
     folder of images, it computes the varon ratio between each image creating
@@ -65,7 +65,7 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ima
         np.ndarray: compute matrix containing varon ratios for all frequency channels
     """
     final_matrix = []
-    
+    num_images = len(images)
     image_file_names = [
         "TOA_AVIRIS_460nm.tif", 
         "TOA_AVIRIS_550nm.tif", 
@@ -86,8 +86,8 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ima
 
     all_folders = os.listdir(dir_path)
     
-    if num_folders is not None:
-        all_folders = all_folders[:num_folders]
+    if num_images is not None:
+        all_folders = all_folders[:num_images]
 
     for image_folder in all_folders:
         folder_path = os.path.join(dir_path, image_folder)
@@ -97,7 +97,7 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ima
 
         hyperspectral_images = []
         image_prime_sums = []
-        for i in range(num_images):
+        for i in range(num_bands):
             img_path = os.path.join(folder_path, image_file_names[i])
             
             with Image.open(img_path) as img_data:
@@ -107,13 +107,12 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ima
                 image_prime_sums.append(np.sum(remove_outliers_with_zscore(img_subset, c_threshold)))
             
 
-        
-        current_matrix = np.zeros((num_images, num_images)) 
+        current_matrix = np.zeros((num_bands, num_bands)) 
 
-        for k in range(num_images):
+        for k in range(num_bands):
             S = hyperspectral_images[k]
             S_prime_sum = image_prime_sums[k]
-            for j in range(k, num_images): 
+            for j in range(k, num_bands): 
                 # I didn't do anything with the fact that S should be signal band and B should be background band
                 B = hyperspectral_images[j]
 
