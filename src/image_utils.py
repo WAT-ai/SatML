@@ -98,8 +98,8 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.nd
 
     Returns:
         Tuple[List[np.ndarray], List[np.ndarray]]:
-            - A list of the images stored as numpy float32 arrays
-            - A list of label data stored as numpy float32 arrays
+            - Images stored as numpy float32 arrays with shape (512, 512, 16)
+            - Labels data stored as numpy float32 arrays with shape (512, 512, 1)
     '''
     img_labels = ['labelbinary.tif']  # Image label files to extract
 
@@ -118,7 +118,7 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.nd
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
 
-        return np.array(images), np.array(labels)
+        return np.stack(images, axis=-1), np.expand_dims(data, axis=-1) # Stack the image & labels array layerwise
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
     
@@ -132,8 +132,8 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
 
     Yields:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
-            - The first element is a NumPy array of images.
-            - The second element is a NumPy array of labels.
+            - A numpy array of images with shape (512, 512, 16).
+            - A numpy array of labels with shape (512, 512, 1).
 
     Raises:
         FileNotFoundError: If the specified directory does not exist.
