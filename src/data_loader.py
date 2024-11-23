@@ -1,5 +1,5 @@
 import tensorflow as tf
-from image_utils import data_generator
+from src.image_utils import data_generator
 
 def create_dataset() -> tf.data.Dataset: # TODO: Modify to accept other base data dirs
     """
