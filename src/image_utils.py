@@ -4,6 +4,7 @@ from PIL import Image
 from skimage import measure
 import matplotlib.pyplot as plt
 from ipywidgets import interact
+from typing import List, Tuple, Generator
 import math
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
@@ -82,6 +83,95 @@ def varonRatio(S, B, c):
     std_deviation = np.std(ratio)
 
     return mean, std_deviation
+
+
+def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+    '''
+    Extract all .tif images and their labels data from a given directory
+
+    Args:
+        dir (str | os.PathLike): 
+        file_names: list[str]: A list of image file names (frequencies) to extract
+
+    Raises:
+        FileNotFoundError: raised if directory cannot be found
+
+    Returns:
+        Tuple[List[np.ndarray], List[np.ndarray]]:
+            - Images stored as numpy float32 arrays with shape (512, 512, 16)
+            - Labels data stored as numpy float32 arrays with shape (512, 512, 1)
+    '''
+    img_labels = ['labelbinary.tif']  # Image label files to extract
+
+    if os.path.isdir(dir):
+        images, labels = [], []
+        for file in os.listdir(dir):
+            if file in file_names or file in img_labels:
+                file_path = os.path.join(dir, file)
+                try:
+                    with Image.open(file_path) as img:
+                        data = np.array(img, dtype=np.float32) # Store img/labels as float32 type array
+                        if file in file_names:
+                            images.append(data)
+                        else:
+                            labels.append(data)
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+
+        return np.stack(images, axis=-1), np.expand_dims(data, axis=-1) # Stack the image & labels array layerwise
+    else:
+        raise FileNotFoundError(f"Unable to find the {dir} directory.")
+    
+
+def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+    """
+    Load images and their labels from subdirectories of a specified directory.
+
+    Args:
+        dir (str | os.PathLike): Path to the base directory containing image subdirectories.
+
+    Yields:
+        Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
+            - A numpy array of images with shape (512, 512, 16).
+            - A numpy array of labels with shape (512, 512, 1).
+
+    Raises:
+        FileNotFoundError: If the specified directory does not exist.
+
+    Notes:
+        - The `file_names` list specifies the expected image files to be processed.
+        - The `load_image_set` function is used to load and convert image and label data.
+        - Each yielded tuple corresponds to a batch of images and labels from a subdirectory.
+    """
+
+    file_names = [
+        "TOA_AVIRIS_460nm.tif",
+        "TOA_AVIRIS_550nm.tif",
+        "TOA_AVIRIS_640nm.tif",
+        "TOA_AVIRIS_2004nm.tif",
+        "TOA_AVIRIS_2109nm.tif",
+        "TOA_AVIRIS_2310nm.tif",
+        "TOA_AVIRIS_2350nm.tif",
+        "TOA_AVIRIS_2360nm.tif",
+        "TOA_WV3_SWIR1.tif",
+        "TOA_WV3_SWIR2.tif",
+        "TOA_WV3_SWIR3.tif",
+        "TOA_WV3_SWIR4.tif",
+        "TOA_WV3_SWIR5.tif",
+        "TOA_WV3_SWIR6.tif",
+        "TOA_WV3_SWIR7.tif",
+        "TOA_WV3_SWIR8.tif"
+    ]
+    if os.path.isdir(dir):
+        for entry in os.listdir(dir):
+            sub_dir = os.path.join(dir, entry)
+            if os.path.isdir(sub_dir):
+                images, labels = load_image_set(sub_dir, file_names)
+                yield images, labels
+    else:
+        raise FileNotFoundError(f"Unable to find the {dir} directory.")
+
+
 
 """
 Generates a bounding box around each blob present within a binary label mask.
@@ -239,3 +329,4 @@ def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "io
     
     iou_value = iou_metrics(true_bbox, pred_bbox, metric)
     return iou_value
+
