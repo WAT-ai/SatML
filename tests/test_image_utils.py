@@ -54,7 +54,7 @@ class TestImageUtils(unittest.TestCase):
         self.files_to_remove.append('tests/varon_correct.npy') 
         np.testing.assert_almost_equal(correct_matrix, compute_matrix, decimal=6) 
     
-
+    
     def test_binary_bbox(self):
         binary_image = np.array([
             [0, 0, 1, 1, 0],
