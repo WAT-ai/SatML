@@ -19,3 +19,10 @@ Use Python 3.11 for the current requirements.
 ## Contributors
 - [Prahar Ijner](https://github.com/pijner)
 - [Kelvin Ying](https://github.com/KelvYing)
+- [Yasmeen Elkheir](https://github.com/yasmeene)
+- [Calista Besseling](https://github.com/CalistaBesseling)
+- [Harsh Patel](https://github.com/hpatel0816)
+- [Sarah Ali](https://github.com/sarahmakki12)
+- [Madeline Kim](https://github.com/madelineekim)
+- [Cristian Moretto](https://github.com/criscreates)
+- [Michelle Yao](https://github.com/michellejyao)
