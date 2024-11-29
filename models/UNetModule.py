@@ -1,20 +1,52 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+from matplotlib import pyplot as plt
+
+class Augment(tf.keras.layers.Layer):
+  def __init__(self, flip=True, rotate=True, crop=False, seed=42):
+    super().__init__()
+    # both use the same seed, so they'll make the same random changes.
+    self.augment_inputs = keras.Sequential()
+    self.augment_labels = keras.Sequential()
+
+    if flip:
+        self.augment_inputs.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
+        self.augment_labels.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
+
+    if rotate:
+        self.augment_inputs.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
+        self.augment_labels.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
+
+    if crop:
+        self.augment_inputs.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
+        self.augment_inputs.add(keras.layers.Resizing(height=128, width=128))
+        self.augment_labels.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
+        self.augment_labels.add(keras.layers.Resizing(height=128, width=128))
+
+  def call(self, inputs, labels):
+    inputs = self.augment_inputs(inputs)
+    labels = self.augment_labels(labels)
+    return inputs, labels
 
 class UNet():
     """
     Image segmentation module that trains a U-Net model. Adapted from https://www.tensorflow.org/tutorials/images/segmentation.
     """
 
-    def __init__(self, output_channels):
-        self.output_channels = output_channels
+    def __init__(self, input_channels, num_classes):
+        self.input_channels = input_channels
+        self.num_classes = num_classes
         self.model = self.unet_model()
-
-    def normalize(self, input_image):
-        # normalize image color values to [0, 1]
-        input_image = tf.cast(input_image, tf.float32) / 255.0
-        return input_image
+        # temporary values for normalization
+        self.image_mean = tf.constant([0.10667099, 13.674022, 14.076011, 14.384233,
+                                       0.11666037, 1.171873, 0.85495037, 0.4318816,
+                                       0.48891786, 0.11440071, 0.11879135, 0.12649247,
+                                       0.11130015, 0.10874157, 0.10803088, 0.10755966])
+        self.image_std = tf.constant([0.09226333, 13.874699, 15.393596, 17.116693,
+                                      0.17859535, 1.4490424, 0.83888125, 0.52144384,
+                                      0.6939981, 0.16807413, 0.1728661, 0.17979662,
+                                      0.1645278, 0.15060072, 0.138635, 0.12866527])
     
     def load_image(self, datapoint):
         # resize images to 128 x 128 pixels
@@ -25,7 +57,9 @@ class UNet():
             method = tf.image.ResizeMethod.NEAREST_NEIGHBOR,
         )
 
-        input_image = self.normalize(input_image)
+        # normalize image
+        input_image -= self.image_mean
+        input_image /= self.image_std
 
         return input_image, input_mask
     
@@ -70,7 +104,7 @@ class UNet():
         The decoder/sampler is a series of upsample blocks.
         """
 
-        base_model = tf.keras.applications.MobileNetV2(input_shape=[128, 128, 3], include_top=False)
+        base_model = tf.keras.applications.MobileNetV2(input_shape=[128, 128, self.input_channels], include_top=False, weights=None)
 
         # Use the activations of these layers
         layer_names = [
@@ -94,7 +128,7 @@ class UNet():
             self.upsample(64, 3),   # 32x32 -> 64x64
         ]
 
-        inputs = tf.keras.layers.Input(shape=[128, 128, 3])
+        inputs = tf.keras.layers.Input(shape=[128, 128, self.input_channels])
 
         # Downsampling through the model
         skips = down_stack(inputs)
@@ -109,16 +143,36 @@ class UNet():
 
         # This is the last layer of the model
         last = tf.keras.layers.Conv2DTranspose(
-            filters=self.output_channels, kernel_size=3, strides=2,
+            filters=self.num_classes, kernel_size=3, strides=2,
             padding='same')  #64x64 -> 128x128
 
         x = last(x)
 
         return tf.keras.Model(inputs=inputs, outputs=x)
+    
+    def dice_loss(self, y_true, y_pred):
+        # y_true shape [batch_size,128,128,1] dtype=float32
+        # y_pred shape [batch_size,128,128,num_classes] dtype=float32
+        # y_pred array of logits
+        smooth = tf.constant(1e-17)
 
-    def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=5):
+        y_true = tf.cast(y_true, tf.int32)
+        y_true = tf.one_hot(y_true, depth=2, axis=-1)
+        y_true = tf.squeeze(y_true)
+        y_pred = tf.math.softmax(y_pred, axis=-1)
+
+        numerator = tf.reduce_sum(y_true * y_pred)
+        denominator = tf.reduce_sum(y_true + y_pred)
+        # numerator = tf.cast(numerator, tf.float32)
+        # denominator=tf.cast(denominator, tf.float32)
+        loss = 1.0 - 2.0 * (numerator + smooth) / (denominator + smooth)
+
+        return loss
+
+    def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=1, lr=0.001):
        self.model.compile(optimizer='adam',
-                          loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                        #   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                          loss=self.dice_loss,
                           metrics=['accuracy'])
        
        train_length, val_length = len(train_dataset), len(val_dataset)
@@ -132,6 +186,7 @@ class UNet():
           .shuffle(buffer_size)
           .batch(batch_size)
           .repeat()
+          .map(Augment())
           .prefetch(buffer_size=tf.data.AUTOTUNE))
        
        val_batches = val_images.batch(batch_size)
@@ -142,16 +197,24 @@ class UNet():
        model_history = self.model.fit(train_batches, 
                                       epochs=epochs,
                                       steps_per_epoch=steps_per_epoch,
-                                      validation_steps=validation_steps,
+                                    #   validation_steps=validation_steps,
                                       validation_data=val_batches)
        
        return model_history
-    
-    def predict(self, test_dataset, batch_size=64):
-       test_images = test_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
-       test_batches = test_images.batch(batch_size)
 
-       for image, mask in test_batches.take(1):
-          pred_mask = self.model.predict(image)
-          # display prediction?
-       
+    def create_mask(self, prediction):
+        pred_mask = tf.math.softmax(prediction, axis=-1)
+        pred_mask = tf.math.argmax(pred_mask, axis=-1)
+        pred_mask = pred_mask[..., tf.newaxis]
+        return pred_mask
+
+    def predict_image(self, image, mask):
+        prediction = self.model.predict(image)
+        pred_mask = self.create_mask(prediction)
+        return (image, mask, pred_mask)
+
+    def predict_dataset(self, test_dataset, batch_size=8):
+        test_images = test_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
+        test_batches = test_images.batch(batch_size)
+        for images, masks in test_batches.take(1):
+            return self.predict_image(images, masks)
