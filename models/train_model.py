@@ -6,8 +6,8 @@ import matplotlib.patches as patches
 from keras.src.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard
 from tensorflow.python.keras.models import load_model
 
-from model import create_model
-from data_loader import create_dataset 
+from models.model import create_model
+from src.data_loader import create_dataset 
 
 def train_model():
     """
