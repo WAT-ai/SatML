@@ -22,8 +22,10 @@ def create_dataset() -> tf.data.Dataset: # TODO: Modify to accept other base dat
 
 
 if __name__ == "__main__":
-    dataset = create_dataset()
-
-    for images, labels in dataset.take(1):  # Take one batch of data
-        print(f'Images shape: {images.shape}')
-        print(f'Labels shape: {labels.shape}')
+    dataset = create_dataset().batch(batch_size=16)
+    test_dataset = dataset.take(1)
+    
+    for images, bboxes in test_dataset:  
+        # print(f'Images shape: {images.shape}')
+        # print(f'Bounding box shape: {bboxes.shape}')
+        print(f'Bounding boxes: {bboxes.numpy()}\n')
