@@ -1,96 +1,74 @@
-# training the model
-from .model import create_model
-from .data_preprocessing import stack_images, preprocess_images, augment_data
-from keras.src.callbacks import ModelCheckpoint
+import os
 import tensorflow as tf
-import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
-image_paths = [
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_460nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_550nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_640nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_2004nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_2109nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_2310nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_2350nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_AVIRIS_2360nm.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR1.tif', 
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR2.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR3.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR4.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR5.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR6.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR7.tif',
-    './data/raw_data/STARCOP_train_easy/ang20190922t192642_r2048_c0_w512_h512/TOA_WV3_SWIR8.tif'
-]
+from keras.src.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard
+from tensorflow.python.keras.models import load_model
 
-# CAN DELETE
-annotations = [ # [x_min, y_min, x_max, y_max]
-    [50, 60, 200, 220],  
-    [100, 120, 250, 270],  
-    [20, 120, 250, 270],
-    [100, 90, 300, 400],
-    [35, 28, 100, 100],
-    [150, 5, 222, 80],
-    [80, 100, 200, 300],
-    [92, 55, 400, 180],
-    [50, 60, 200, 220],  
-    [100, 120, 250, 270],  
-    [20, 120, 250, 270],
-    [100, 90, 300, 400],
-    [35, 28, 100, 100],
-    [150, 5, 222, 80],
-    [80, 100, 200, 300],
-    [92, 55, 400, 180]
-]
+from model import create_model
+from data_loader import create_dataset 
 
-def train_model(images, annotations):
+def train_model():
     """
-    load data, preprocess it, and train the model
-    Parameters:
-        images: "Directory" containing training images
-        annotations: "Directory" containing annotations
+    Load data, preprocess it, and train the model.
+
     """
-
-    # stack the images using the function in data_preprocessing
-    images = stack_images(image_paths)
-
-    img_shape = images.shape
-
-    # (NOT USING RIGHT NOW) preprocess images i.e resize
-    # preprocessed_image = preprocess_images(images)
-
-    # (NOT USING RIGHT NOW) augment data
-    # augmented_image = augment_data(preprocessed_image)
-
-    model = create_model(img_shape)  
-
-    # checkpoint saves the best model during training
-    # checkpoint = ModelCheckpoint('best_model.keras', save_best_only=True)
-
-    # compiling the model
-    # MSE penalizes large errors which in return minimizies coordinate errors
-    # MAE provides a more direct measure of average error
-    model.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError(), metrics=['mae'])
-
-    training_images = [images]
-    training_images = np.array(training_images)
+    dataset = create_dataset().batch(batch_size=16)
+    # split into train and validation datasets
+    train_dataset = dataset.take(18).repeat() 
+    val_dataset = dataset.skip(18).take(17).repeat() 
     
-    training_annotations = [[20, 120, 250, 270]]
-    training_annotations = np.array(training_annotations)
+    img_shape = 0
+    for image_batch, label_batch in dataset.take(1):  
+        # print("Batch shape:", image_batch.shape)  # shape of the entire batch
+        # print("Image shape:", image_batch[0].shape)  # shape of one image in the batch
+        img_shape = image_batch[0].shape
+        # print("Label shape:", label_batch.shape)  # shape of the corresponding labels
+        break 
 
-    # training the model
-    model.fit(
-        training_images, 
-        training_annotations, 
-        epochs=10, 
-        batch_size=32, 
-        # validation_split=0.2
-        # callbacks=[checkpoint]
+    model = create_model(img_shape, 10)
+
+    model.compile(
+        optimizer='adam',
+        loss='mse',
+        # loss=tf.keras.losses.Huber(), 
+        metrics=['mae', 'accuracy']
+        # loss_weights= 0.5   
     )
 
-    model.save('bounding_box_model.keras')
-    print("bounding box model saved successfully")
+    # callbacks
+    checkpoint = ModelCheckpoint(
+        filepath='best_model.keras',
+        save_best_only=True,
+        monitor='val_loss',
+        mode='min'
+    )
 
-if __name__ == "__main__":
-    train_model(image_paths, annotations)
+    lr_schedule = LearningRateScheduler(lambda epoch: 1e-3 * 0.95 ** epoch) # adjusts the learning rate for each epoch 
+    # higher learning rate in the beginning helps the model converge faster.
+    # lower learning rate later prevents overshooting the minimum and allows the model to fine-tune and be more precise.
+
+    tensorboard = TensorBoard(log_dir='logs', histogram_freq=1) # logs various training metrics 
+    # (like loss, accuracy, learning rate, etc.) during training so you can visualize them
+
+    model.fit(
+        train_dataset,
+        epochs=20,
+        steps_per_epoch=18,
+        validation_data=val_dataset,
+        validation_steps=17,
+        callbacks=[checkpoint, lr_schedule]
+    )
+
+    prediction_dataset = dataset.take(1)
+
+    for image, bbox in prediction_dataset:
+        prediction = model.predict(image)
+        print(f"Predicted bounding box: {prediction}")
+
+    model.save('bounding_box_model.keras')
+    print("Bounding box model saved successfully.")
+
+if __name__ == "__main__":        
+    train_model()
