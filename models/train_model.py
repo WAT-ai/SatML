@@ -8,6 +8,7 @@ from tensorflow.python.keras.models import load_model
 
 from models.model import create_model
 from src.data_loader import create_dataset 
+from src.image_utils import compare_bbox
 
 def train_model():
     """
@@ -31,7 +32,7 @@ def train_model():
 
     model.compile(
         optimizer='adam',
-        loss='mse',
+        loss=compare_bbox,
         # loss=tf.keras.losses.Huber(), 
         metrics=['mae', 'accuracy']
         # loss_weights= 0.5   

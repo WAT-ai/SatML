@@ -10,7 +10,7 @@ def create_dataset() -> tf.data.Dataset: # TODO: Modify to accept other base dat
     """
     output_sig = (
         tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
-        tf.TensorSpec(shape=(10, 4), dtype=tf.float32)   # bounding box labels
+        tf.TensorSpec(shape=(4), dtype=tf.float32)   # bounding box labels
     )
 
     dir = './data/raw_data/STARCOP_train_easy' # Use train easy dataset by default
@@ -22,10 +22,13 @@ def create_dataset() -> tf.data.Dataset: # TODO: Modify to accept other base dat
 
 
 if __name__ == "__main__":
-    dataset = create_dataset().batch(batch_size=16)
-    test_dataset = dataset.take(1)
+    dataset = create_dataset()
     
-    for images, bboxes in test_dataset:  
+    i=0
+    for images, bboxes in dataset:  
         # print(f'Images shape: {images.shape}')
         # print(f'Bounding box shape: {bboxes.shape}')
         print(f'Bounding boxes: {bboxes.numpy()}\n')
+        i=i+1
+        if i>16:
+            break
