@@ -298,7 +298,7 @@ def createTestMatrix():
 
         np.save("tests/varon_correct.npy", data)
 
-def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_bands: int, images: Optional[np.ndarray]=None, pixels: Optional[int]= 255):
+def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_file: Optional[str]=None, images: Optional[list]=None, pixels: Optional[int]= 255) -> np.ndarray:
     """
     consumes a path to a directory (easy training), and name of the output file. For each
     folder of images, it computes the varon ratio between each image creating
@@ -307,16 +307,19 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ban
 
     Args:
         dir_path (str): path to directory with images
-        output_file (str): path to output file for computed matrix
         c_threshold (float): z-threshold for outlier filtering
-        num_folders (Optional[int], optional): number of folders to process. Defaults to None.
+        num_bands (int): number of bands to process
+        output_file (Optional[str], optional): name of the file to save the computed matrix. Computed matrix won't be saved if not specified. Defaults to None.
+        images (Optional[list], optional): name of folders to process. Defaults to None.
+        pixels (Optional[int], optional): number of pixels to process. Defaults to 255.
+        save_path (Optional[str], optional): path to save the computed matrix. Matrix won't be saved if not specified. Defaults to None.
         If None, all folders will be processed
 
     Returns:
         np.ndarray: compute matrix containing varon ratios for all frequency channels
     """
     final_matrix = []
-    num_images = len(images)
+
     image_file_names = [
         "TOA_AVIRIS_460nm.tif",
         "TOA_AVIRIS_550nm.tif",
@@ -335,12 +338,9 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ban
         "TOA_WV3_SWIR7.tif",
         "TOA_WV3_SWIR8.tif"]
 
-    all_folders = os.listdir(dir_path)
-    
-    if num_images is not None:
-        all_folders = all_folders[:num_images]
+    folders_to_process = os.listdir(dir_path) if images is None else images
 
-    for image_folder in all_folders:
+    for image_folder in folders_to_process:
         folder_path = os.path.join(dir_path, image_folder)
         
         if not os.path.isdir(folder_path):
@@ -380,6 +380,7 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ban
 
         final_matrix.append(current_matrix)
 
-    np.save(output_file, final_matrix)
+    if output_file:
+        np.save(output_file, final_matrix)
 
     return final_matrix
