@@ -61,12 +61,9 @@ class TestImageUtils(unittest.TestCase):
         images = ["ang20190927t184620_r7541_c401_w151_h151",
                   "ang20190927t153023_r7101_c126_w151_h151",
                   "ang20191019t175004_r8192_c256_w512_h512"]
-        compute_matrix = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", "tests/varon.npy", 2, 3, images,5)
-        self.files_to_remove.append('tests/varon.npy') 
-        
-        image_utils.createTestMatrix()
-        correct_matrix = np.load("tests/varon_correct.npy")
-        self.files_to_remove.append('tests/varon_correct.npy') 
+        compute_matrix = image_utils.varon_iteration("data/raw_data/STARCOP_train_easy", 2, 3, images=images, pixels=5)
+
+        correct_matrix = get_expected_varon_matrix()
         np.testing.assert_almost_equal(correct_matrix, compute_matrix, decimal=6) 
     
     
