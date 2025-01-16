@@ -282,22 +282,6 @@ def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "io
         
     return iou_value
 
-def createTestMatrix():
-
-        data = np.array([
-            [[0, -0.2104005415, -0.4138471552],
-            [-0.2104005415, 0, -0.2586695576],
-            [-0.4138471552, -0.2586695576, 0]],
-            [[0, 0, 0],
-            [0, 0, 0],
-            [0, 0, 0]],
-            [[0, -0.2246186874, -0.3063050874],
-            [-0.2246186874, 0, -0.1064981483],
-            [-0.3063050874, -0.1064981483, 0]]
-        ])
-
-        np.save("tests/varon_correct.npy", data)
-
 def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_file: Optional[str]=None, images: Optional[list]=None, pixels: Optional[int]= 255) -> np.ndarray:
     """
     consumes a path to a directory (easy training), and name of the output file. For each

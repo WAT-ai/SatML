@@ -4,6 +4,21 @@ from pathlib import Path
 
 from src import image_utils
 
+def get_expected_varon_matrix():
+    data = np.array([
+        [[0, -0.2104005415, -0.4138471552],
+        [-0.2104005415, 0, -0.2586695576],
+        [-0.4138471552, -0.2586695576, 0]],
+        [[0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0]],
+        [[0, -0.2246186874, -0.3063050874],
+        [-0.2246186874, 0, -0.1064981483],
+        [-0.3063050874, -0.1064981483, 0]]
+    ])
+
+    return data
+
 class TestImageUtils(unittest.TestCase):
     def setUp(self):
         self.files_to_remove = []
