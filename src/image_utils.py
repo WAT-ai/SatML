@@ -6,6 +6,7 @@ from skimage import measure
 import matplotlib.pyplot as plt
 from ipywidgets import interact
 from typing import List, Tuple, Generator
+import tensorflow as tf
 import math
 from keras_cv import losses
 
@@ -383,3 +384,27 @@ def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_ban
     np.save(output_file, final_matrix)
 
     return final_matrix
+
+"""
+Gets normalization constants using data loader:
+Find mean and standard deviation for each of the 16 channels of image dataset
+arguments: takes in tf.data.Dataset
+returns:
+"""
+def find_normalization_constants(dataset):
+    final_array = [] 
+    
+    # Loop through each of the 16 channels
+    for i in range(16):
+        channel_total = np.zeros((512, 512), dtype=np.float32)  # Initialize a zero matrix for channel summation
+
+        for images, _ in dataset:
+            channel = images[:, :, i]  # Extract the i-th channel
+            channel_total += channel  
+
+        mean = np.mean(channel_total)
+        stddev = np.std(channel_total)
+
+        final_array.append((mean, stddev))
+
+    return final_array
