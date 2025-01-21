@@ -13,6 +13,14 @@ def dice_loss(y_true, y_pred, smooth=1):
     Returns:
         tf.tensor: dice coefficient
     """
+    y_pred_classes = y_pred.shape[-1]
+    y_true_classes = y_true.shape[-1]
+
+    if y_pred_classes != y_pred_classes and y_true_classes != 1:
+        raise ValueError(f"Number of classes in GT and predicted masks do not match. {y_true_classes} != {y_pred_classes}")
+
+    y_true = tf.one_hot(tf.cast(y_true, tf.uint8), depth=y_pred_classes) if y_pred_classes > 1 else tf.cast(y_true, tf.float32)
+
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = K.sum(y_true_f * y_pred_f)
@@ -31,6 +39,14 @@ def weighted_dice_loss(y_true, y_pred, smooth=1, weight=5.0):
     Returns:
         tf.tensor: weighted dice coefficient
     """
+    y_pred_classes = y_pred.shape[-1]
+    y_true_classes = y_true.shape[-1]
+
+    if y_pred_classes != y_pred_classes and y_true_classes != 1:
+        raise ValueError(f"Number of classes in GT and predicted masks do not match. {y_true_classes} != {y_pred_classes}")
+
+    y_true = tf.one_hot(tf.cast(y_true, tf.uint8), depth=y_pred_classes) if y_pred_classes > 1 else tf.cast(y_true, tf.float32)
+
     # Flatten tensors
     y_true_f = tf.reshape(y_true, shape=(-1,))
     y_pred_f = tf.reshape(y_pred, shape=(-1,))
