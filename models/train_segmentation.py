@@ -1,28 +1,19 @@
-import os
 import argparse
-import numpy as np
-import tensorflow as tf
 from UNetModule import UNet
+from src.data_loader import create_dataset
 
-def train_segmentation(train_x, train_y, test_x, test_y, input_channels, num_classes, epochs, output_path):
+def train_segmentation(train_dataset, test_dataset, input_channels, num_classes, epochs, output_path):
     """Script to train U-Net segmentation model given numpy arrays containing train and test images and labels.
 
     Images are in n, h, w, c format (float32).
     Labels are in h, w format (uint8).
     """
 
-    # Correct shape of label arrays (n, h, w) -> (n, h, w, 1)
-    train_y_chan = np.expand_dims(train_y, axis=3)
-    test_y_chan = np.expand_dims(test_y, axis=3)
-
-    # Create tensorflow datasets
-    train_dataset = tf.data.Dataset.from_tensor_slices({"image": train_x, "segmentation_mask": train_y_chan})
-    test_dataset = tf.data.Dataset.from_tensor_slices({"image": test_x, "segmentation_mask": test_y_chan})
-
     # Train model
     unet = UNet(input_channels, num_classes)
     unet.train(train_dataset, test_dataset, epochs=epochs)
     unet.model.save_weights(f'{output_path}/checkpoint.weights.h5')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -33,11 +24,21 @@ if __name__ == '__main__':
     parser.add_argument('-epochs', '--epochs', type=int, default=20)
     args = parser.parse_args()
 
-    # Load datasets
-    train_x = np.load(f'{args.data_path}/train_x.npy')
-    train_y = np.load(f'{args.data_path}/train_y.npy')
-    test_x = np.load(f'{args.data_path}/test_x.npy')
-    test_y = np.load(f'{args.data_path}/test_y.npy')
+    data_dir = './data/raw_data/STARCOP_train_easy'
 
-    # Train model
-    train_segmentation(train_x, train_y, test_x, test_y, args.input_channels, args.num_classes, args.epochs, args.output_path)
+    # Load the complete dataset
+    dataset = create_dataset(data_dir)
+    
+    # Determine the total number of samples in the dataset
+    total_samples = sum(1 for _ in dataset)
+    
+    # Calculate split sizes (Using default 80/20 split for testing)
+    train_size = int(total_samples * 0.8)
+    test_size = total_samples - train_size
+
+    # Split the dataset into training and testing subsets
+    train_dataset = dataset.take(train_size)
+    test_dataset = dataset.skip(train_size)  
+
+    # Train the model
+    train_segmentation(train_dataset, test_dataset, args.input_channels, args.num_classes, args.epochs, args.output_path)
