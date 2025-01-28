@@ -392,18 +392,25 @@ arguments: takes in tf.data.Dataset
 returns:
 """
 def find_normalization_constants(dataset):
+    """
+    final array is an array of 16 tuples with mean and std dev for each of the channels
+    """
     final_array = [] 
     
     # Loop through each of the 16 channels
     for i in range(16):
-        channel_total = np.zeros((512, 512), dtype=np.float32)  # Initialize a zero matrix for channel summation
+        channel_array = []  # Initialize a zero matrix for channel summation
 
         for images, _ in dataset:
-            channel = images[:, :, i]  # Extract the i-th channel
-            channel_total += channel  
+            current_channel = images[:, :, i]  # Extract the i-th channel
+            """current channel is currently a 512x512 array, we want to flatten it into an array length 262144, then append it to channel_array"""
+            current_channel_flat =tf.reshape(current_channel, [-1])
+            channel_array.append(current_channel_flat)
 
-        mean = np.mean(channel_total)
-        stddev = np.std(channel_total)
+        all_pixels = tf.concat(channel_array, axis=0)
+
+        mean = tf.reduce_mean(all_pixels)
+        stddev = tf.math.reduce_std(all_pixels)
 
         final_array.append((mean, stddev))
 
