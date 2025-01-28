@@ -183,7 +183,7 @@ class UNet():
           .cache()
           .shuffle(buffer_size)
           .batch(batch_size)
-          .repeat()
+          .repeat(2)
           .map(Augment())
           .prefetch(buffer_size=tf.data.AUTOTUNE))
        
