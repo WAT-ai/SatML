@@ -99,3 +99,14 @@ class SegmentPipeline:
         cropped_dataset = original_dataset.flat_map(process_images)
 
         return cropped_dataset
+
+if __name__ == "__main__":
+    pipeline = SegmentPipeline(channels_of_interest=None, num_classes=1, target_shape=(256, 256))
+    dataset = pipeline.create_dataset('./data/raw_data/STARCOP_train_easy')
+
+    for images, labels in dataset.take(1):
+        print(f'Images shape: {images.shape}')
+        print(f'Labels shape: {labels.shape}')
+        print(f'Images dtype: {images.dtype}')
+        print(f'Labels dtype: {labels.dtype}')
+        break
