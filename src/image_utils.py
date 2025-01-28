@@ -212,6 +212,33 @@ def binary_bbox(label_mask):
     return np.array(bboxes)
 
 
+def get_single_bounding_box(mask: np.ndarray):
+    """
+    Generate a bounding box around a binary mask in a given 2D array.
+    Parameters:
+        mask (np.ndarray): A 2D numpy array representing the binary mask.
+    Returns:
+        np.array: An array of four integers (x_left, x_right, y_top, y_bottom).
+    """
+    # Validate input dimensions
+    if mask.ndim != 2:
+        raise ValueError("Input must be a 2D array.")
+
+    # Find non-zero elements in the mask
+    non_zero_indices = np.argwhere(mask > 0)
+
+    if non_zero_indices.size == 0:
+        # No mask present
+        return -1, -1, -1, -1
+
+    # Calculate the bounding box coordinates
+    y_coords, x_coords = non_zero_indices[:, 0], non_zero_indices[:, 1]
+    x_left = np.min(x_coords)
+    x_right = np.max(x_coords)
+    y_top = np.min(y_coords)
+    y_bottom = np.max(y_coords)
+
+    return np.array([x_left, x_right, y_top, y_bottom])
     
 def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
     """ Wrapper function for iou_metrics function, verifying bounding boxes and metric.
