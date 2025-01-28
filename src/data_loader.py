@@ -1,4 +1,5 @@
 import tensorflow as tf
+
 from src.image_utils import data_generator
 
 def create_dataset() -> tf.data.Dataset: # TODO: Modify to accept other base data dirs
@@ -20,15 +21,49 @@ def create_dataset() -> tf.data.Dataset: # TODO: Modify to accept other base dat
         output_signature=output_sig
     )
 
+def augment_image(image, bbox, transformation):
+    """
+    Applies the specified transformation to the image and updates the bounding box accordingly.
+    """
+    if transformation == "horizontal_flip":
+        image = tf.image.flip_left_right(image)
+        bbox = tf.stack([1 - bbox[2], bbox[1], 1 - bbox[0], bbox[3]])  # reverse x
+    elif transformation == "vertical_flip":
+        image = tf.image.flip_up_down(image)
+        bbox = tf.stack([bbox[0], 1 - bbox[3], bbox[2], 1 - bbox[1]])  # reverse y
+    elif transformation == "rotate":
+        image = tf.image.rot90(image)  # rotate 90 degrees
+        bbox = tf.stack([bbox[1], 1 - bbox[2], bbox[3], 1 - bbox[0]])
+    # will add rotations of 180 and 270 degrees    
+    return image, bbox
+
+def augment_dataset(dataset, augmentations=["horizontal_flip", "vertical_flip", "rotate"]):
+    """
+    Applies augmentations to the dataset and combines augmented dataset with the original dataset.
+    """
+    all_imgs = []
+    all_bboxes = []
+
+    for image, bbox in dataset:
+        all_imgs.append(image)
+        all_bboxes.append(bbox)
+        for aug in augmentations:
+            aug_image, aug_bbox = augment_image(image, bbox, aug)
+            all_imgs.append(aug_image)
+            all_bboxes.append(aug_bbox)
+    
+    return tf.data.Dataset.from_tensor_slices((tf.convert_to_tensor(all_imgs), tf.convert_to_tensor(all_bboxes)))
 
 if __name__ == "__main__":
+    # testing the shapes of the images and bboxes
     dataset = create_dataset()
-    
-    i=0
-    for images, bboxes in dataset:  
-        # print(f'Images shape: {images.shape}')
-        # print(f'Bounding box shape: {bboxes.shape}')
-        print(f'Bounding boxes: {bboxes.numpy()}\n')
-        i=i+1
-        if i>16:
-            break
+
+    for image, bbox in dataset.take(3):
+        print(f"original bounding box: {bbox}")
+        print(f"Original Image Shape: {image.shape}, Original Bbox Shape: {bbox.shape}")
+
+    augmented_dataset = augment_dataset(dataset.take(3))
+
+    for image, bbox in augmented_dataset.take(12):
+        print(f"augmented bounding box: {bbox}")
+        print(f"Augmented Image Shape: {image.shape}, Augmented Bbox Shape: {bbox.shape}")

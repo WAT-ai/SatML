@@ -1,13 +1,7 @@
-import os
-import tensorflow as tf
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-
 from keras.src.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard
-from tensorflow.python.keras.models import load_model
 
 from models.model import create_model
-from src.data_loader import create_dataset 
+from src.data_loader import create_dataset, augment_dataset
 from src.image_utils import compare_bbox
 
 def train_model():
@@ -15,25 +9,21 @@ def train_model():
     Load data, preprocess it, and train the model.
 
     """
-    dataset = create_dataset().batch(batch_size=16)
-    # split into train and validation datasets
-    train_dataset = dataset.take(18).repeat() 
-    val_dataset = dataset.skip(18).take(17).repeat() 
+    dataset = create_dataset()
+    dataset = augment_dataset(dataset) # causing a resource exhausted error
+    dataset = dataset.batch(batch_size=8)
+    train_dataset = dataset.take(50).repeat()
     
     img_shape = 0
-    for image_batch, label_batch in dataset.take(1):  
-        # print("Batch shape:", image_batch.shape)  # shape of the entire batch
-        # print("Image shape:", image_batch[0].shape)  # shape of one image in the batch
-        img_shape = image_batch[0].shape
-        # print("Label shape:", label_batch.shape)  # shape of the corresponding labels
+    for image_batch, _ in dataset.take(1):
+        img_shape = image_batch.shape[1:]
         break 
 
-    model = create_model(img_shape, 10)
+    model = create_model(img_shape)
 
     model.compile(
         optimizer='adam',
         loss=compare_bbox,
-        # loss=tf.keras.losses.Huber(), 
         metrics=['mae', 'accuracy']
         # loss_weights= 0.5   
     )
@@ -55,21 +45,24 @@ def train_model():
 
     model.fit(
         train_dataset,
-        epochs=20,
-        steps_per_epoch=18,
-        validation_data=val_dataset,
-        validation_steps=17,
+        epochs=1,
+        steps_per_epoch=50,
+        # validation_data=val_dataset,
+        # validation_steps=17,
         callbacks=[checkpoint, lr_schedule]
     )
 
-    prediction_dataset = dataset.take(1)
+    one_batch = dataset.skip(50).take(1)
+    for image, real_bbox in one_batch:
+        print(f"Real bounding box: {real_bbox}")
 
-    for image, bbox in prediction_dataset:
+    predict_dataset = dataset.skip(50).take(1)
+    for image, _ in predict_dataset:
         prediction = model.predict(image)
         print(f"Predicted bounding box: {prediction}")
 
     model.save('bounding_box_model.keras')
     print("Bounding box model saved successfully.")
 
-if __name__ == "__main__":        
+if __name__ == "__main__":
     train_model()

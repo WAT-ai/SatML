@@ -1,7 +1,7 @@
 # define/create model
 import tensorflow as tf
 
-def create_model(img_shape, num_of_boxes):
+def create_model(img_shape):
     model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=img_shape),
         
@@ -16,11 +16,13 @@ def create_model(img_shape, num_of_boxes):
         
         tf.keras.layers.Flatten(),
         tf.keras.layers.Dense(128, activation='relu'),
+
+        tf.keras.layers.Dense(4) # output will look like: [x_min, y_min, x_max, y_max]
         
-        tf.keras.layers.Dense(4*num_of_boxes),  # output will look like: [x_min, y_min, x_max, y_max]
+        # tf.keras.layers.Dense(4*num_of_boxes),  
 
         # reshape output to be [batch_size, num_bboxes, 4]
-        tf.keras.layers.Reshape((num_of_boxes, 4))
+        # tf.keras.layers.Reshape((num_of_boxes, 4))
     ])
     
     return model
