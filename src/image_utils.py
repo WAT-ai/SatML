@@ -145,8 +145,8 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
 
     Yields:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
-            - A numpy array of images with shape (512, 512, 16, 1) as float32 format.
-            - A numpy array of labels with shape (512, 512) as uint8 format.
+            - A numpy array of images with shape (512, 512, 16) as float32 format.
+            - A numpy array of labels with shape (512, 512, 1) as float32 format.
     
     Raises:
         FileNotFoundError: If the specified directory does not exist.
@@ -179,14 +179,7 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
         for entry in os.listdir(dir):
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
-                images, labels = load_image_set(sub_dir, file_names)
-                
-                # Add extra dimension to images (n, h, w, c) -> (n, h, w, c, 1)
-                images = np.expand_dims(images, axis=-1).astype(np.float32)
-                
-                # Ensure labels are in uint8 format and remove any extra dimensions
-                labels = np.squeeze(labels).astype(np.uint8)
-                
+                images, labels = load_image_set(sub_dir, file_names)        
                 yield images, labels
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")

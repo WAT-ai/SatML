@@ -6,8 +6,8 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
     """
     Creates a TensorFlow dataset with images and labels grouped in dictionary format as given:
         - {"image": image_data, "segmentation_mask": label_data}
-        - "image": (512, 512, 16, 1) in float32.
-        - "segmentation_mask": (512, 512) in uint8.
+        - "image": (512, 512, 16) in float32.
+        - "segmentation_mask": (512, 512, 1) in float32.
 
     Args:
         dir (str | os.PathLike): Path to the directory containing the data.
@@ -16,8 +16,8 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
         tf.data.Dataset: A TensorFlow dataset.
     """
     output_sig = (
-        tf.TensorSpec(shape=(512, 512, 16, 1), dtype=tf.float32),  # Images
-        tf.TensorSpec(shape=(512, 512), dtype=tf.uint8)           # Labels
+        tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
+        tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32)    # Labels
     )
 
     dataset = tf.data.Dataset.from_generator(
