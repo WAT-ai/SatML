@@ -1,5 +1,5 @@
 import argparse
-from UNetModule import UNet
+from models.UNetModule import UNet
 from src.data_loader import create_dataset
 
 def train_segmentation(train_dataset, test_dataset, input_channels, num_classes, epochs, output_path):
@@ -17,17 +17,15 @@ def train_segmentation(train_dataset, test_dataset, input_channels, num_classes,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-data_path', '--data_path', type=str, default='/home/sarahmakki12/SatML/data/np_data')
-    parser.add_argument('-output_path', '--output_path', type=str, default='/home/sarahmakki12/SatML/logs')
+    parser.add_argument('-data_path', '--data_path', type=str, default='./data/raw_data/STARCOP_train_easy')
+    parser.add_argument('-output_path', '--output_path', type=str, default='./logs')
     parser.add_argument('-input_channels', '--input_channels', type=int, default=16)
     parser.add_argument('-num_classes', '--num_classes', type=int, default=2)
     parser.add_argument('-epochs', '--epochs', type=int, default=20)
     args = parser.parse_args()
 
-    data_dir = './data/raw_data/STARCOP_train_easy'
-
     # Load the complete dataset
-    dataset = create_dataset(data_dir)
+    dataset = create_dataset(args.data_path)
     
     # Determine the total number of samples in the dataset
     total_samples = sum(1 for _ in dataset)
