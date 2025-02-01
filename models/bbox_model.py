@@ -83,7 +83,7 @@ class BBoxModel:
 
         # normalize images
         if self.normalize:
-            dataset = dataset.map(lambda img, lab: BBoxModel.normalize_image(img, mean, std))
+            dataset = dataset.map(lambda img, lab: (BBoxModel.normalize_image(img, mean, std), lab))
 
         # augment images
         dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
@@ -165,7 +165,7 @@ class BBoxModel:
         return tf.data.Dataset.from_tensor_slices(datasets).flat_map(lambda x: x)
 
     def train(self, train_dataset, epochs=10, batch_size=8):
-        train_dataset = train_dataset.batch(batch_size).prefetch(1)
+        train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
         return self.model.fit(train_dataset, epochs=epochs)
 
     def evaluate(self, test_data):
@@ -185,7 +185,7 @@ class BBoxModel:
 
 if __name__ == "__main__":
     data_dir = './data/raw_data/STARCOP_train_easy'
-    model = BBoxModel((512, 512, 16), 1, normalize=False, augmentations=["none", "horizontal_flip"])
+    model = BBoxModel((512, 512, 16), 1, normalize=False)
     model.compile()
     print(model.model.summary())
     print("Model created successfully.")
