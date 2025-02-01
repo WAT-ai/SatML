@@ -37,22 +37,17 @@ def augment_image(image, bbox, transformation):
     # will add rotations of 180 and 270 degrees    
     return image, bbox
 
-def augment_dataset(dataset, augmentations=["horizontal_flip", "vertical_flip", "rotate"]):
+def augment_dataset(image, bbox, augmentations=["horizontal_flip", "vertical_flip", "rotate"]):
     """
     Applies augmentations to the dataset and combines augmented dataset with the original dataset.
     """
-    all_imgs = []
-    all_bboxes = []
+    datasets = []
 
-    for image, bbox in dataset:
-        all_imgs.append(image)
-        all_bboxes.append(bbox)
-        for aug in augmentations:
-            aug_image, aug_bbox = augment_image(image, bbox, aug)
-            all_imgs.append(aug_image)
-            all_bboxes.append(aug_bbox)
+    for augmentation in augmentations:
+        img, box = augment_image(image, bbox, augmentation)
+        datasets.append(tf.data.Dataset.from_tensors((img, box)))
     
-    return tf.data.Dataset.from_tensor_slices((tf.convert_to_tensor(all_imgs), tf.convert_to_tensor(all_bboxes)))
+    return tf.data.Dataset.from_tensor_slices(datasets).flat_map(lambda x: x)
 
 if __name__ == "__main__":
     # testing the shapes of the images and bboxes
@@ -62,8 +57,8 @@ if __name__ == "__main__":
         print(f"original bounding box: {bbox}")
         print(f"Original Image Shape: {image.shape}, Original Bbox Shape: {bbox.shape}")
 
-    augmented_dataset = augment_dataset(dataset.take(3))
+    augmented_dataset = dataset.flat_map(augment_dataset)
 
-    for image, bbox in augmented_dataset.take(12):
+    for image, bbox in augmented_dataset:
         print(f"augmented bounding box: {bbox}")
         print(f"Augmented Image Shape: {image.shape}, Augmented Bbox Shape: {bbox.shape}")
