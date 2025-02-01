@@ -335,43 +335,43 @@ def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "io
         raise ValueError(
         'Unknown type {}, not iou/diou'.format(metric))
     
-    # Convert inputs to NumPy arrays if they are not already
-    true_bbox = np.array(true_bbox) if not isinstance(true_bbox, np.ndarray) else true_bbox
-    pred_bbox = np.array(pred_bbox) if not isinstance(pred_bbox, np.ndarray) else pred_bbox
+    # # Convert inputs to NumPy arrays if they are not already
+    # true_bbox = np.array(true_bbox) if not isinstance(true_bbox, np.ndarray) else true_bbox
+    # pred_bbox = np.array(pred_bbox) if not isinstance(pred_bbox, np.ndarray) else pred_bbox
     
-    # Ensure inputs are 2D arrays
-    if true_bbox.ndim != 2 or pred_bbox.ndim != 2:
-        raise ValueError("Bounding boxes must be 2D arrays.")
+    # # Ensure inputs are 2D arrays
+    # if true_bbox.ndim != 2 or pred_bbox.ndim != 2:
+    #     raise ValueError("Bounding boxes must be 2D arrays.")
     
-    # Ensure each bounding box has four coordinates (x_min, y_min, x_max, y_max)
-    if true_bbox.shape[1] != 4 or pred_bbox.shape[1] != 4:
-        raise ValueError("Each bounding box must have exactly four coordinates.")
+    # # Ensure each bounding box has four coordinates (x_min, y_min, x_max, y_max)
+    # if true_bbox.shape[1] != 4 or pred_bbox.shape[1] != 4:
+    #     raise ValueError("Each bounding box must have exactly four coordinates.")
     
-    # Validate each bounding box
-    for bbox in true_bbox:
-        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
-            raise ValueError(f"Invalid bounding box: {bbox} in true_bbox")
-    for bbox in pred_bbox:
-        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
-            raise ValueError(f"Invalid bounding box: {bbox} in pred_bbox")
+    # # Validate each bounding box
+    # for bbox in true_bbox:
+    #     if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+    #         raise ValueError(f"Invalid bounding box: {bbox} in true_bbox")
+    # for bbox in pred_bbox:
+    #     if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+    #         raise ValueError(f"Invalid bounding box: {bbox} in pred_bbox")
     
-    # Ensure bounding boxes contain valid numeric types (int or float)
-    if not (np.issubdtype(true_bbox.dtype, np.integer) or np.issubdtype(true_bbox.dtype, np.floating)):
-        raise TypeError("true_bbox must contain int or float values.")
-    if not (np.issubdtype(pred_bbox.dtype, np.integer) or np.issubdtype(pred_bbox.dtype, np.floating)):
-        raise TypeError("pred_bbox must contain int or float values.")
+    # # Ensure bounding boxes contain valid numeric types (int or float)
+    # if not (np.issubdtype(true_bbox.dtype, np.integer) or np.issubdtype(true_bbox.dtype, np.floating)):
+    #     raise TypeError("true_bbox must contain int or float values.")
+    # if not (np.issubdtype(pred_bbox.dtype, np.integer) or np.issubdtype(pred_bbox.dtype, np.floating)):
+    #     raise TypeError("pred_bbox must contain int or float values.")
     
     # get the loss function values
     iou_value = None
     if metric == 'iou':
         loss = losses.IoULoss("XYXY", "linear")
-        iou_value = loss(true_bbox, pred_bbox).numpy()
+        iou_value = loss(true_bbox, pred_bbox)
     if metric == 'giou': 
         loss = losses.GIoULoss("XYXY")
-        iou_value = loss(true_bbox, pred_bbox).numpy()
+        iou_value = loss(true_bbox, pred_bbox)
     if metric == 'ciou':
         loss = losses.CIoULoss("XYXY")
-        iou_value = loss(true_bbox, pred_bbox).numpy()
+        iou_value = loss(true_bbox, pred_bbox)
         
     return iou_value
 

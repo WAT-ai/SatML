@@ -1,16 +1,16 @@
 from keras.src.callbacks import ModelCheckpoint, LearningRateScheduler, TensorBoard
 
 from models.model import create_model
-from src.data_loader import create_dataset, augment_dataset
+from src.data_loader import create_bbox_dataset, augment_dataset
 from src.image_utils import compare_bbox
 
-def train_model():
+def train_model(data_dir: str = './data/raw_data/STARCOP_train_easy', max_boxes=10):
     """
     Load data, preprocess it, and train the model.
 
     """
-    dataset = create_dataset()
-    dataset = augment_dataset(dataset) # causing a resource exhausted error
+    dataset = create_bbox_dataset(data_dir, max_boxes=max_boxes)
+    dataset = dataset.flat_map(augment_dataset)
     dataset = dataset.batch(batch_size=8)
     train_dataset = dataset.take(50).repeat()
     
@@ -19,7 +19,7 @@ def train_model():
         img_shape = image_batch.shape[1:]
         break 
 
-    model = create_model(img_shape)
+    model = create_model(img_shape, max_boxes)
 
     model.compile(
         optimizer='adam',
@@ -65,4 +65,4 @@ def train_model():
     print("Bounding box model saved successfully.")
 
 if __name__ == "__main__":
-    train_model()
+    train_model(max_boxes=1)
