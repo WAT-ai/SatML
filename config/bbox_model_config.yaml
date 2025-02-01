@@ -1,0 +1,12 @@
+## Default configs for training bbox model
+
+# Data config
+data_dir: './data/raw_data/STARCOP_train_easy'
+max_boxes: 1
+
+# output config
+output_dir: './output/bbox_model'
+
+# Model hyperparameters
+num_epochs: 100
+batch_size: 8

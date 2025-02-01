@@ -1,3 +1,5 @@
+import sys
+import yaml
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 
@@ -80,6 +82,9 @@ class BBoxModel:
 
     def preprocess_dataset(self, dataset: tf.data.Dataset):
         mean, std = self.get_normalization_constants(dataset) if self.normalize else (0.0, 1.0)
+
+        # resize images
+        dataset = dataset.map(lambda img, lab: (tf.image.resize(img, self.input_shape), lab))
 
         # normalize images
         if self.normalize:
@@ -184,11 +189,23 @@ class BBoxModel:
 
 
 if __name__ == "__main__":
-    data_dir = './data/raw_data/STARCOP_train_easy'
-    model = BBoxModel((512, 512, 16), 1, normalize=False)
+    config_file = sys.argv[1]
+
+    config_dict = yaml.safe_load(open(config_file))
+
+    data_dir = config_dict.get("data_dir", "./data/raw_data/STARCOP_train_easy")
+    max_boxes = config_dict.get("max_boxes", 10)
+    image_shape = config_dict.get("image_shape", (512, 512))
+    normalize = config_dict.get("normalize", False)
+    augmentations = config_dict.get("augmentations", ["none", "horizontal_flip", "vertical_flip", "rotate"])
+
+    batch_size = config_dict.get("batch_size", 8)
+    epochs = config_dict.get("epochs", 10)
+
+    model = BBoxModel((*image_shape, 16), max_boxes, normalize=normalize, augmentations=augmentations)
     model.compile()
     print(model.model.summary())
     print("Model created successfully.")
-    train_dataset = create_bbox_dataset(data_dir, max_boxes=1)
+    train_dataset = create_bbox_dataset(data_dir, max_boxes=max_boxes)
     train_dataset = model.preprocess_dataset(train_dataset)
-    model.train(train_dataset, epochs=1)
+    model.train(train_dataset, epochs=epochs, batch_size=batch_size)
