@@ -22,8 +22,8 @@ Use Python 3.11 for the current requirements.
   ```
 
 ## System Architecture
-[!Model Training Flow](./docs/training.png)
-[!Model Inference Flow](./docs/inference.png)
+![Model Training Flow](./docs/training.png)
+![Model Inference Flow](./docs/inference.png)
 
 ## Contributors
 - [Prahar Ijner](https://github.com/pijner)
