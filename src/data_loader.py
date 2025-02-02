@@ -1,29 +1,48 @@
+import os
 import tensorflow as tf
 from src.image_utils import data_generator
 
-def create_dataset() -> tf.data.Dataset: # TODO: Modify to accept other base data dirs
+def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
     """
-    Creates a TensorFlow dataset with images and their labels with the given dimensions:
-        - Images: (512, 512, 16)
-        - Labels: (512, 512, 1)
-    Each image channel corressponds to a specific hyperspectral frequency image.
+    Creates a TensorFlow dataset with images and labels grouped in dictionary format as given:
+        - {"image": image_data, "segmentation_mask": label_data}
+        - "image": (512, 512, 16) in float32.
+        - "segmentation_mask": (512, 512, 1) in float32.
+
+    Args:
+        dir (str | os.PathLike): Path to the directory containing the data.
+
+    Returns:
+        tf.data.Dataset: A TensorFlow dataset.
     """
     output_sig = (
         tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
-        tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32)   # Labels
+        tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32)    # Labels
     )
 
-    dir = './data/raw_data/STARCOP_train_easy' # Use train easy dataset by default
-
-    return tf.data.Dataset.from_generator(
+    dataset = tf.data.Dataset.from_generator(
         lambda: data_generator(dir),
         output_signature=output_sig
     )
 
+    # Transform the dataset to key-val format: {"image": image, "segmentation_mask": label}
+    dataset = dataset.map(
+        lambda img, lbl: {"image": img, "segmentation_mask": lbl},
+        num_parallel_calls=tf.data.AUTOTUNE
+    )
+
+    return dataset
+
 
 if __name__ == "__main__":
-    dataset = create_dataset()
+    # Test the create_dataset function
+    train_data_path = './data/raw_data/STARCOP_train_easy'
+    dataset = create_dataset(train_data_path)
 
-    for images, labels in dataset.take(1):  # Take one batch of data
-        print(f'Images shape: {images.shape}')
-        print(f'Labels shape: {labels.shape}')
+    # Fetch a few samples from the dataset
+    for i, data_point in enumerate(dataset.take(3)):  # Verify first 3 samples
+        print(f"Sample {i + 1}:")
+        print("Keys:", data_point.keys())
+        print("Image shape:", data_point["image"].shape)
+        print("Segmentation mask shape:", data_point["segmentation_mask"].shape)
+        print()
