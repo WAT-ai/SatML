@@ -1,6 +1,7 @@
 import sys
 import yaml
 import tensorflow as tf
+from datetime import datetime
 from tensorflow.keras.models import load_model
 
 from src.losses import iou_loss
@@ -23,6 +24,7 @@ class BBoxModel:
         self.augmentations = augmentations
         self.norm_mean = None
         self.norm_std = None
+        self.unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
         if model_filepath:
             self.model = BBoxModel.load(model_filepath)
@@ -188,8 +190,12 @@ class BBoxModel:
     def predict(self, x):
         return self.model.predict(x)
 
-    def save(self, filepath):
-        self.model.save(filepath)
+    def save(self, output_dir):
+        self.model.save(f"{output_dir}/{self.unique_id}_bbox_model.h5")
+        attrs_dict = {k: self.__dict__[k] for k in self.__dict__ if k != "model"}
+
+        with open(f"{output_dir}/{self.unique_id}_attrs.yaml", "w") as attrs_file:
+            yaml.safe_dump(attrs_dict, attrs_file)
 
     @staticmethod
     def load(filepath):
@@ -220,3 +226,5 @@ if __name__ == "__main__":
     train_dataset = create_bbox_dataset(data_dir, max_boxes=max_boxes, exclude_dirs=exclude_dirs)
     train_dataset = model.preprocess_dataset(train_dataset)
     model.train(train_dataset, epochs=epochs, batch_size=batch_size)
+
+    model.save('./logs')
