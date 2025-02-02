@@ -84,7 +84,7 @@ class BBoxModel:
         mean, std = self.get_normalization_constants(dataset) if self.normalize else (0.0, 1.0)
 
         # resize images
-        dataset = dataset.map(lambda img, lab: (tf.image.resize(img, self.input_shape), lab))
+        dataset = dataset.map(lambda img, lab: (tf.image.resize(img, self.input_shape[:-1]), lab))
 
         # normalize images
         if self.normalize:
@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
     data_dir = config_dict.get("data_dir", "./data/raw_data/STARCOP_train_easy")
     max_boxes = config_dict.get("max_boxes", 10)
-    image_shape = config_dict.get("image_shape", (512, 512))
+    image_shape = config_dict.get("image_shape", (256, 256))
     normalize = config_dict.get("normalize", False)
     augmentations = config_dict.get("augmentations", ["none", "horizontal_flip", "vertical_flip", "rotate"])
 
