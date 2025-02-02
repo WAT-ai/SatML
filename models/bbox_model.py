@@ -103,12 +103,28 @@ class BBoxModel:
 
         # augment images
         dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
+        dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, self.input_shape)))
 
         return dataset
 
     @staticmethod
     def normalize_image(image, mean, std):
         return (image - mean) / std
+    
+    @staticmethod
+    def normalize_bbox(bbox, img_shape):
+        height = tf.cast(img_shape[0], tf.float32)
+        width = tf.cast(img_shape[1], tf.float32)
+
+        # Normalize bounding box coordinates
+        bbox = tf.stack([
+            bbox[..., 0] / width,   # x-left
+            bbox[..., 1] / width,   # x-right
+            bbox[..., 2] / height,  # y-top
+            bbox[..., 3] / height   # y-bottom
+        ], axis=-1)
+
+        return bbox
 
     @staticmethod
     def augment_image(image, bboxes, transformation):
