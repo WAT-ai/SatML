@@ -235,8 +235,6 @@ class UNet():
                                    ],
                           )
        
-       train_length, val_length = len(train_dataset), len(val_dataset)
-       
        train_images = train_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
        val_images = val_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
 
@@ -245,19 +243,14 @@ class UNet():
           .cache()
           .shuffle(buffer_size)
           .batch(batch_size)
-          .repeat()
+          .repeat(2)
           .map(Augment())
           .prefetch(buffer_size=tf.data.AUTOTUNE))
        
        val_batches = val_images.batch(batch_size)
-
-       steps_per_epoch = train_length // batch_size
-       validation_steps = val_length // batch_size // val_subsplits
        
        model_history = self.model.fit(train_batches, 
                                       epochs=epochs,
-                                      steps_per_epoch=steps_per_epoch,
-                                    #   validation_steps=validation_steps,
                                       validation_data=val_batches)
        
        return model_history
