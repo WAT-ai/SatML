@@ -1,5 +1,10 @@
 # SatML
-Methane plume detection in hyper-spectral satellite images
+
+## Overview
+This project aims to develop an AI model for methane plume detection in hyper-spectral satellite images.
+
+- [Project Plan](https://docs.google.com/presentation/d/1-EhQxIQwFT2OGoom4cRer84D6BYW3aajtIMfXAEZegI/edit#slide=id.g3106297605c_0_580)
+- [Related Research](https://www.researchgate.net/publication/375797680_STARCOP_Semantic_Segmentation_of_Methane_Plumes_with_Hyperspectral_Machine_Learning_Models)
 
 ## Setup
 Use Python 3.11 for the current requirements.
@@ -15,6 +20,10 @@ Use Python 3.11 for the current requirements.
   pip install --upgrade pip
   pip install -r requirements.txt
   ```
+
+## System Architecture
+[!Model Training Flow](./docs/training.png)
+[!Model Inference Flow](./docs/inference.png)
 
 ## Contributors
 - [Prahar Ijner](https://github.com/pijner)
