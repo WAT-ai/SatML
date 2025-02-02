@@ -148,12 +148,13 @@ def is_valid_bbox(bbox: Union[np.ndarray, tf.Tensor]) -> bool:
 
     return True
 
-def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs: list = []) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """Load images and generate bounding boxes for labels from subdirectories of a specified directory
 
     Args:
         dir (str | os.PathLike): Path to the base directory containing image subdirectories
         max_boxes (int): Maximum number of bounding boxes to generate per image
+        exclude_dirs (list): List of subdirectories to exclude from processing
 
     Yields:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]:
@@ -179,7 +180,8 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10) -> Generator[
         "TOA_WV3_SWIR8.tif"]
 
     if os.path.isdir(dir):
-        for entry in os.listdir(dir):
+        entries = [sub_dir for sub_dir in os.listdir(dir) if sub_dir not in exclude_dirs]
+        for entry in entries:
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
                 images, label_mask = load_image_set(sub_dir, file_names)

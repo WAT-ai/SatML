@@ -208,6 +208,8 @@ if __name__ == "__main__":
     normalize = config_dict.get("normalize", False)
     augmentations = config_dict.get("augmentations", ["none", "horizontal_flip", "vertical_flip", "rotate"])
 
+    exclude_dirs = config_dict.get("exclude_dirs", [])
+
     batch_size = config_dict.get("batch_size", 8)
     epochs = config_dict.get("epochs", 10)
 
@@ -215,6 +217,6 @@ if __name__ == "__main__":
     model.compile()
     print(model.model.summary())
     print("Model created successfully.")
-    train_dataset = create_bbox_dataset(data_dir, max_boxes=max_boxes)
+    train_dataset = create_bbox_dataset(data_dir, max_boxes=max_boxes, exclude_dirs=exclude_dirs)
     train_dataset = model.preprocess_dataset(train_dataset)
     model.train(train_dataset, epochs=epochs, batch_size=batch_size)

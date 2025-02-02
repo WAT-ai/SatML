@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from src.image_utils import data_generator, bbox_data_generator, is_valid_bbox
 
-def create_bbox_dataset(data_dir, max_boxes=10) -> tf.data.Dataset:
+def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = []) -> tf.data.Dataset:
     """Creates a TensorFlow dataset with images and their bounding box labels
 
     Returns:
@@ -16,7 +16,7 @@ def create_bbox_dataset(data_dir, max_boxes=10) -> tf.data.Dataset:
     )
 
     return tf.data.Dataset.from_generator(
-        lambda: bbox_data_generator(data_dir, max_boxes),
+        lambda: bbox_data_generator(data_dir, max_boxes, exclude_dirs),
         output_signature=output_sig
     )
 
