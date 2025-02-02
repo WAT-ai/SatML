@@ -3,7 +3,7 @@ import yaml
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 
-from src.image_utils import compare_bbox
+from src.losses import iou_loss
 from src.data_loader import is_valid_bbox, create_bbox_dataset
 
 
@@ -51,7 +51,7 @@ class BBoxModel:
     def compile(
         self,
         optimizer="adam",
-        loss=compare_bbox,
+        loss=iou_loss,
         metrics=["mae", "accuracy"],
     ):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
@@ -184,7 +184,7 @@ class BBoxModel:
 
     @staticmethod
     def load(filepath):
-        model = load_model(filepath, custom_objects={"compare_bbox": compare_bbox})
+        model = load_model(filepath, custom_objects={"iou_loss": iou_loss})
         return model
 
 
