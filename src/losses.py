@@ -2,7 +2,10 @@ import tensorflow as tf
 
 def iou_loss(y_true, y_pred):
     """Computes IoU loss for bounding boxes in (x-left, x-right, y-top, y-bottom) format."""
-    
+    # Reshape from (batch, n, 4) to (batch * n, 4)
+    y_true = tf.reshape(y_true, [-1, 4])
+    y_pred = tf.reshape(y_pred, [-1, 4])
+
     # Check if the ground truth and predicted boxes are all negative (invalid bounding box)
     all_negative_true = tf.reduce_all(y_true < 0, axis=1)
     all_negative_pred = tf.reduce_all(y_pred < 0, axis=1)
