@@ -1,5 +1,22 @@
 import tensorflow as tf
 
+def modified_mean_squared_error(y_true, y_pred):
+    # Reshape from (batch, n, 4) to (batch * n, 4)
+    y_true = tf.reshape(y_true, [-1, 4])
+    y_pred = tf.reshape(y_pred, [-1, 4])
+
+    # Check if the ground truth and predicted boxes are all negative (invalid bounding box)
+    all_negative_true = tf.reduce_all(y_true < 0, axis=1)
+    all_negative_pred = tf.reduce_all(y_pred < 0, axis=1)
+    
+    # Mask where both boxes are negative
+    valid_boxes_mask = tf.logical_and(all_negative_true, all_negative_pred)
+    
+    # Set loss to 0 for invalid boxes, keep normal loss for valid boxes
+    final_loss = tf.where(valid_boxes_mask, 0.0, tf.reduce_mean(tf.square(y_true - y_pred), axis=1))
+
+    return tf.reduce_mean(final_loss)  # Reduce over batch
+
 def iou_loss(y_true, y_pred):
     """Computes IoU loss for bounding boxes in (x-left, x-right, y-top, y-bottom) format."""
     # Reshape from (batch, n, 4) to (batch * n, 4)

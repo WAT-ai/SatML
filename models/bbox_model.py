@@ -3,8 +3,9 @@ import yaml
 import tensorflow as tf
 from datetime import datetime
 from tensorflow.keras.models import load_model
+from tensorflow.keras.optimizers import Adam
 
-from src.losses import iou_loss
+from src.losses import iou_loss, modified_mean_squared_error
 from src.data_loader import is_valid_bbox, create_bbox_dataset
 
 
@@ -36,20 +37,25 @@ class BBoxModel:
             tf.keras.layers.Input(shape=img_shape),
             
             # Encoder: Convolutional layers
-            tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same"),
+            tf.keras.layers.Conv2D(64, (3, 3), padding="same"),
+            tf.keras.layers.ELU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
             
-            tf.keras.layers.Conv2D(128, (3, 3), activation="relu", padding="same"),
+            tf.keras.layers.Conv2D(128, (3, 3), padding="same"),
+            tf.keras.layers.ELU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
             
-            tf.keras.layers.Conv2D(256, (3, 3), activation="relu", padding="same"),
+            tf.keras.layers.Conv2D(256, (3, 3), padding="same"),
+            tf.keras.layers.ELU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
             
             # Decoder: Convolution for bounding box regression
-            tf.keras.layers.Conv2D(512, (3, 3), activation="relu", padding="same"),
+            tf.keras.layers.Conv2D(512, (3, 3), padding="same"),
+            tf.keras.layers.ELU(),
             
             # Final convolutional layer for predicting bounding boxes
-            tf.keras.layers.Conv2D(4 * max_boxes, (1, 1), activation="linear", padding="same"),
+            tf.keras.layers.Conv2D(4 * max_boxes, (1, 1), padding="same"),
+            tf.keras.layers.ELU(),
             
             # Global Average Pooling to reduce spatial dimensions
             tf.keras.layers.GlobalAveragePooling2D(),
@@ -61,8 +67,8 @@ class BBoxModel:
 
     def compile(
         self,
-        optimizer="adam",
-        loss=iou_loss,
+        optimizer=Adam(learning_rate=0.0001),
+        loss=modified_mean_squared_error,
         metrics=["mae", "accuracy"],
     ):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
@@ -215,7 +221,7 @@ class BBoxModel:
 
     @staticmethod
     def load(filepath):
-        model = load_model(filepath, custom_objects={"iou_loss": iou_loss})
+        model = load_model(filepath, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error})
         return model
 
 
