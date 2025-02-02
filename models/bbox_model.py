@@ -30,22 +30,31 @@ class BBoxModel:
             self.model = model_fn(input_shape, max_boxes) if model_fn else self._build_model(input_shape, max_boxes)
 
     def _build_model(self, img_shape, max_boxes):
-        model = tf.keras.Sequential(
-            [
-                tf.keras.layers.Input(shape=img_shape),
-                tf.keras.layers.Conv2D(64, (3, 3), activation="relu"),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Conv2D(128, (3, 3), activation="relu"),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Conv2D(256, (3, 3), activation="relu"),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Flatten(),
-                tf.keras.layers.Dense(128, activation="relu"),
-                tf.keras.layers.Dense(4 * max_boxes),
-                # reshape output to be [batch_size, num_bboxes, 4]
-                tf.keras.layers.Reshape((max_boxes, 4)),
-            ]
-        )
+        model = tf.keras.Sequential([
+            tf.keras.layers.Input(shape=img_shape),
+            
+            # Encoder: Convolutional layers
+            tf.keras.layers.Conv2D(64, (3, 3), activation="relu", padding="same"),
+            tf.keras.layers.MaxPooling2D((2, 2)),
+            
+            tf.keras.layers.Conv2D(128, (3, 3), activation="relu", padding="same"),
+            tf.keras.layers.MaxPooling2D((2, 2)),
+            
+            tf.keras.layers.Conv2D(256, (3, 3), activation="relu", padding="same"),
+            tf.keras.layers.MaxPooling2D((2, 2)),
+            
+            # Decoder: Convolution for bounding box regression
+            tf.keras.layers.Conv2D(512, (3, 3), activation="relu", padding="same"),
+            
+            # Final convolutional layer for predicting bounding boxes
+            tf.keras.layers.Conv2D(4 * max_boxes, (1, 1), activation="linear", padding="same"),
+            
+            # Global Average Pooling to reduce spatial dimensions
+            tf.keras.layers.GlobalAveragePooling2D(),
+            
+            # Reshape to (batch_size, max_boxes, 4)
+            tf.keras.layers.Reshape((max_boxes, 4))  # We want a fixed number of bounding boxes per image
+        ])
         return model
 
     def compile(
@@ -195,7 +204,7 @@ if __name__ == "__main__":
 
     data_dir = config_dict.get("data_dir", "./data/raw_data/STARCOP_train_easy")
     max_boxes = config_dict.get("max_boxes", 10)
-    image_shape = config_dict.get("image_shape", (256, 256))
+    image_shape = config_dict.get("image_shape", (512, 512))
     normalize = config_dict.get("normalize", False)
     augmentations = config_dict.get("augmentations", ["none", "horizontal_flip", "vertical_flip", "rotate"])
 
