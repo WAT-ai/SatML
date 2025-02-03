@@ -31,7 +31,7 @@ def train_model(data_dir: str = './data/raw_data/STARCOP_train_easy', max_boxes=
     # callbacks
     checkpoint = ModelCheckpoint(
         filepath='bounding_box_model_epoch_{epoch:02d}.keras',
-        save_best_only=True,
+        save_best_only=False,
         monitor='val_loss',
         mode='min',
         save_freq='epoch'  # Save model after each epoch
