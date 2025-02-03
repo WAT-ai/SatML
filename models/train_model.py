@@ -30,10 +30,11 @@ def train_model(data_dir: str = './data/raw_data/STARCOP_train_easy', max_boxes=
 
     # callbacks
     checkpoint = ModelCheckpoint(
-        filepath='best_model.keras',
+        filepath='bounding_box_model_epoch_{epoch:02d}.keras',
         save_best_only=True,
         monitor='val_loss',
-        mode='min'
+        mode='min',
+        save_freq='epoch'  # Save model after each epoch
     )
 
     lr_schedule = LearningRateScheduler(lambda epoch: 1e-3 * 0.95 ** epoch) # adjusts the learning rate for each epoch 
@@ -45,11 +46,9 @@ def train_model(data_dir: str = './data/raw_data/STARCOP_train_easy', max_boxes=
 
     model.fit(
         train_dataset,
-        epochs=1,
+        epochs=10,  # Increased epochs to see model saving after each epoch
         steps_per_epoch=50,
-        # validation_data=val_dataset,
-        # validation_steps=17,
-        callbacks=[checkpoint, lr_schedule]
+        callbacks=[checkpoint, lr_schedule, tensorboard]
     )
 
     one_batch = dataset.skip(50).take(1)
