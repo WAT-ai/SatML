@@ -12,8 +12,8 @@ class TestCreateDataset(unittest.TestCase):
         
         # Check the shape and data type of a single batch
         for images, labels in dataset.take(1):
-            self.assertEqual(images.shape, (16, 512, 512), "Images shape does not match expected dimensions")
-            self.assertEqual(labels.shape, (1, 512, 512), "Labels shape does not match expected dimensions")
+            self.assertEqual(images.shape, (512, 512, 16), "Images shape does not match expected dimensions")
+            self.assertEqual(labels.shape, (512, 512, 1), "Labels shape does not match expected dimensions")
             self.assertEqual(images.dtype, tf.float32, "Images dtype should be tf.float32")
             self.assertEqual(labels.dtype, tf.float32, "Labels dtype should be tf.float32")
 

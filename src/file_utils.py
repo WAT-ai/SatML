@@ -113,4 +113,4 @@ def read_dataset_csv(
     if check_file_exist(csv_file_path):
         return pd.read_csv(csv_file_path)
 
-    raise FileNotFoundError(f"Couldn't find csv file for {dataset_name}")
+    raise FileNotFoundError(f"Couldn't find csv file for {dataset_name}: {csv_file_path}")
