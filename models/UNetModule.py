@@ -224,6 +224,13 @@ class UNet():
         return AUC
         
     def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=1, lr=0.001):
+       checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath="unet_model_epoch_{epoch:02d}.h5",  # Save the model after each epoch
+        save_best_only=False,  # Save at the end of each epoch
+        save_weights_only=False,  # Save the entire model
+        verbose=1
+        )
+       
        self.model.compile(optimizer='adam',
                         #   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                           loss=self.dice_loss,
@@ -249,9 +256,10 @@ class UNet():
        
        val_batches = val_images.batch(batch_size)
        
-       model_history = self.model.fit(train_batches, 
-                                      epochs=epochs,
-                                      validation_data=val_batches)
+       model_history = self.model.fit(train_batches,
+                                   epochs=epochs,
+                                   validation_data=val_batches,
+                                   callbacks=[checkpoint_callback])
        
        return model_history
 
