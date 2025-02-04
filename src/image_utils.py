@@ -9,6 +9,7 @@ from ipywidgets import interact
 from typing import List, Tuple, Generator
 import math
 from keras_cv import losses
+from constants import image_file_names
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     """
@@ -161,23 +162,7 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
             - A numpy array of images with shape (512, 512, 16)
             - A numpy array of bounding box labels with shape (max_boxes, 4)
     """
-    file_names = [
-        "TOA_AVIRIS_460nm.tif",
-        "TOA_AVIRIS_550nm.tif",
-        "TOA_AVIRIS_640nm.tif",
-        "TOA_AVIRIS_2004nm.tif",
-        "TOA_AVIRIS_2109nm.tif",
-        "TOA_AVIRIS_2310nm.tif",
-        "TOA_AVIRIS_2350nm.tif",
-        "TOA_AVIRIS_2360nm.tif",
-        "TOA_WV3_SWIR1.tif",
-        "TOA_WV3_SWIR2.tif",
-        "TOA_WV3_SWIR3.tif",
-        "TOA_WV3_SWIR4.tif",
-        "TOA_WV3_SWIR5.tif",
-        "TOA_WV3_SWIR6.tif",
-        "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
+    file_names = image_file_names
 
     if os.path.isdir(dir):
         entries = [sub_dir for sub_dir in os.listdir(dir) if sub_dir not in exclude_dirs]
@@ -222,23 +207,7 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
         - Each yielded tuple corresponds to a batch of images and labels from a subdirectory.
     """
 
-    file_names = [
-        "TOA_AVIRIS_460nm.tif",
-        "TOA_AVIRIS_550nm.tif",
-        "TOA_AVIRIS_640nm.tif",
-        "TOA_AVIRIS_2004nm.tif",
-        "TOA_AVIRIS_2109nm.tif",
-        "TOA_AVIRIS_2310nm.tif",
-        "TOA_AVIRIS_2350nm.tif",
-        "TOA_AVIRIS_2360nm.tif",
-        "TOA_WV3_SWIR1.tif",
-        "TOA_WV3_SWIR2.tif",
-        "TOA_WV3_SWIR3.tif",
-        "TOA_WV3_SWIR4.tif",
-        "TOA_WV3_SWIR5.tif",
-        "TOA_WV3_SWIR6.tif",
-        "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
+    file_names = image_file_names
 
     if os.path.isdir(dir):
         for entry in os.listdir(dir):
@@ -398,23 +367,7 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
         np.ndarray: compute matrix containing varon ratios for all frequency channels
     """
     final_matrix = []
-    image_file_names = [
-        "TOA_AVIRIS_460nm.tif",
-        "TOA_AVIRIS_550nm.tif",
-        "TOA_AVIRIS_640nm.tif",
-        "TOA_AVIRIS_2004nm.tif",
-        "TOA_AVIRIS_2109nm.tif",
-        "TOA_AVIRIS_2310nm.tif",
-        "TOA_AVIRIS_2350nm.tif",
-        "TOA_AVIRIS_2360nm.tif",
-        "TOA_WV3_SWIR1.tif",
-        "TOA_WV3_SWIR2.tif",
-        "TOA_WV3_SWIR3.tif",
-        "TOA_WV3_SWIR4.tif",
-        "TOA_WV3_SWIR5.tif",
-        "TOA_WV3_SWIR6.tif",
-        "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
+    image_file_names = image_file_names
 
     folders_to_process = os.listdir(dir_path) if images is None else images
 
