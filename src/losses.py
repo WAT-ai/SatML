@@ -140,8 +140,8 @@ def iou_loss(y_true, y_pred):
     """
 
     # Mask for valid bounding boxes
-    valid_mask = tf.reduce_all(y_true != -1, axis=-1, keepdims=True)  # Shape: (batch_size, n, 1)
-    pred_valid_mask = tf.reduce_all(y_pred != -1, axis=-1, keepdims=True)  # (batch_size, n, 1)
+    valid_mask = tf.reduce_all(y_true >= 0, axis=-1, keepdims=True)  # Shape: (batch_size, n, 1)
+    pred_valid_mask = tf.reduce_all(y_pred >= 0, axis=-1, keepdims=True)  # (batch_size, n, 1)
 
     # Extract box coordinates
     x1_true, x2_true, y1_true, y2_true = tf.split(y_true, 4, axis=-1)
