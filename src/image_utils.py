@@ -1,12 +1,11 @@
 import os
 import numpy as np
 import tensorflow as tf
-from PIL import Image
-from typing import Optional, Union
-from skimage import measure
 import matplotlib.pyplot as plt
-from ipywidgets import interact
-from typing import List, Tuple, Generator
+
+from PIL import Image
+from skimage import measure
+from typing import List, Tuple, Generator, Optional, Union
 from keras_cv import losses
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
@@ -200,12 +199,13 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
                 yield images, np.array(bboxes)
 
 
-def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = None) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
     Load images and their labels from subdirectories of a specified directory.
 
     Args:
         dir (str | os.PathLike): Path to the base directory containing image subdirectories.
+        file_names (Optional[list[str]], optional): A list of image file names to extract. Defaults to None.
 
     Yields:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
@@ -221,23 +221,25 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
         - Each yielded tuple corresponds to a batch of images and labels from a subdirectory.
     """
 
-    file_names = [
-        "TOA_AVIRIS_460nm.tif",
-        "TOA_AVIRIS_550nm.tif",
-        "TOA_AVIRIS_640nm.tif",
-        "TOA_AVIRIS_2004nm.tif",
-        "TOA_AVIRIS_2109nm.tif",
-        "TOA_AVIRIS_2310nm.tif",
-        "TOA_AVIRIS_2350nm.tif",
-        "TOA_AVIRIS_2360nm.tif",
-        "TOA_WV3_SWIR1.tif",
-        "TOA_WV3_SWIR2.tif",
-        "TOA_WV3_SWIR3.tif",
-        "TOA_WV3_SWIR4.tif",
-        "TOA_WV3_SWIR5.tif",
-        "TOA_WV3_SWIR6.tif",
-        "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
+    if file_names is None:
+        file_names = [
+            "TOA_AVIRIS_460nm.tif",
+            "TOA_AVIRIS_550nm.tif",
+            "TOA_AVIRIS_640nm.tif",
+            "TOA_AVIRIS_2004nm.tif",
+            "TOA_AVIRIS_2109nm.tif",
+            "TOA_AVIRIS_2310nm.tif",
+            "TOA_AVIRIS_2350nm.tif",
+            "TOA_AVIRIS_2360nm.tif",
+            "TOA_WV3_SWIR1.tif",
+            "TOA_WV3_SWIR2.tif",
+            "TOA_WV3_SWIR3.tif",
+            "TOA_WV3_SWIR4.tif",
+            "TOA_WV3_SWIR5.tif",
+            "TOA_WV3_SWIR6.tif",
+            "TOA_WV3_SWIR7.tif",
+            "TOA_WV3_SWIR8.tif"
+        ]
 
     if os.path.isdir(dir):
         for entry in os.listdir(dir):
@@ -304,7 +306,6 @@ def get_single_bounding_box(mask: np.ndarray):
     y_bottom = np.max(y_coords)
 
     return np.array([x_left, x_right, y_top, y_bottom])
-
 
 def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
     """ Wrapper function for iou_metrics function, verifying bounding boxes and metric.
