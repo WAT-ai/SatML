@@ -1,10 +1,11 @@
 import os
 import numpy as np
+import tensorflow as tf
 import matplotlib.pyplot as plt
+
 from PIL import Image
 from skimage import measure
-from ipywidgets import interact
-from typing import List, Tuple, Generator, Optional
+from typing import List, Tuple, Generator, Optional, Union
 from keras_cv import losses
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
@@ -61,7 +62,7 @@ def plot_tiff_images(dir: str | os.PathLike) -> None:
             plt.show()
 
         # Create a slider for displaying images
-        interact(show_image, idx=(0, len(images) - 1))
+        # interact(show_image, idx=(0, len(images) - 1))
 
     else:
         print("Unable to access the provided directory.")
@@ -132,7 +133,71 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.nd
         return np.stack(images, axis=-1), np.expand_dims(data, axis=-1) # Stack the image & labels array layerwise
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
-    
+
+def is_valid_bbox(bbox: Union[np.ndarray, tf.Tensor]) -> bool:
+    """Checks if a given bounding box is valid
+
+    Args:
+        bbox (np.ndarray): x-left, x-right, y-top, y-bottom coordinates
+    """
+    x_left, x_right, y_top, y_bottom = bbox[0], bbox[1], bbox[2], bbox[3]
+    if x_left >= x_right or y_top >= y_bottom:
+        return False
+
+    return True
+
+def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs: list = []) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+    """Load images and generate bounding boxes for labels from subdirectories of a specified directory
+
+    Args:
+        dir (str | os.PathLike): Path to the base directory containing image subdirectories
+        max_boxes (int): Maximum number of bounding boxes to generate per image
+        exclude_dirs (list): List of subdirectories to exclude from processing
+
+    Yields:
+        Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+            - A numpy array of images with shape (512, 512, 16)
+            - A numpy array of bounding box labels with shape (max_boxes, 4)
+    """
+    file_names = [
+        "TOA_AVIRIS_460nm.tif",
+        "TOA_AVIRIS_550nm.tif",
+        "TOA_AVIRIS_640nm.tif",
+        "TOA_AVIRIS_2004nm.tif",
+        "TOA_AVIRIS_2109nm.tif",
+        "TOA_AVIRIS_2310nm.tif",
+        "TOA_AVIRIS_2350nm.tif",
+        "TOA_AVIRIS_2360nm.tif",
+        "TOA_WV3_SWIR1.tif",
+        "TOA_WV3_SWIR2.tif",
+        "TOA_WV3_SWIR3.tif",
+        "TOA_WV3_SWIR4.tif",
+        "TOA_WV3_SWIR5.tif",
+        "TOA_WV3_SWIR6.tif",
+        "TOA_WV3_SWIR7.tif",
+        "TOA_WV3_SWIR8.tif"]
+
+    if os.path.isdir(dir):
+        entries = [sub_dir for sub_dir in os.listdir(dir) if sub_dir not in exclude_dirs]
+        for entry in entries:
+            sub_dir = os.path.join(dir, entry)
+            if os.path.isdir(sub_dir):
+                images, label_mask = load_image_set(sub_dir, file_names)
+
+                if label_mask.ndim > 2:
+                    label_mask = np.squeeze(label_mask)
+
+                # make surue its binary or integer type
+                label_mask = label_mask.astype(int)
+
+                # NOTE: get_single_bounding_box only generates one bounding box
+                bboxes = [bbox for bbox in [get_single_bounding_box(label_mask)] if is_valid_bbox(bbox)]
+
+                if len(bboxes) < max_boxes:
+                    bboxes.extend([[-1, -1, -1, -1]] * (max_boxes - len(bboxes)))
+
+                yield images, np.array(bboxes)
+
 
 def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = None) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
@@ -144,9 +209,9 @@ def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = Non
 
     Yields:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
-            - A numpy array of images with shape (512, 512, 16).
-            - A numpy array of labels with shape (512, 512, 1).
-
+            - A numpy array of images with shape (512, 512, 16) as float32 format.
+            - A numpy array of labels with shape (512, 512, 1) as float32 format.
+    
     Raises:
         FileNotFoundError: If the specified directory does not exist.
 
@@ -180,7 +245,7 @@ def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = Non
         for entry in os.listdir(dir):
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
-                images, labels = load_image_set(sub_dir, file_names)
+                images, labels = load_image_set(sub_dir, file_names)        
                 yield images, labels
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
@@ -215,8 +280,10 @@ def binary_bbox(label_mask):
 def get_single_bounding_box(mask: np.ndarray):
     """
     Generate a bounding box around a binary mask in a given 2D array.
+
     Parameters:
         mask (np.ndarray): A 2D numpy array representing the binary mask.
+
     Returns:
         np.array: An array of four integers (x_left, x_right, y_top, y_bottom).
     """
@@ -239,7 +306,7 @@ def get_single_bounding_box(mask: np.ndarray):
     y_bottom = np.max(y_coords)
 
     return np.array([x_left, x_right, y_top, y_bottom])
-    
+
 def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
     """ Wrapper function for iou_metrics function, verifying bounding boxes and metric.
 
@@ -270,43 +337,43 @@ def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "io
         raise ValueError(
         'Unknown type {}, not iou/diou'.format(metric))
     
-    # Convert inputs to NumPy arrays if they are not already
-    true_bbox = np.array(true_bbox) if not isinstance(true_bbox, np.ndarray) else true_bbox
-    pred_bbox = np.array(pred_bbox) if not isinstance(pred_bbox, np.ndarray) else pred_bbox
+    # # Convert inputs to NumPy arrays if they are not already
+    # true_bbox = np.array(true_bbox) if not isinstance(true_bbox, np.ndarray) else true_bbox
+    # pred_bbox = np.array(pred_bbox) if not isinstance(pred_bbox, np.ndarray) else pred_bbox
     
-    # Ensure inputs are 2D arrays
-    if true_bbox.ndim != 2 or pred_bbox.ndim != 2:
-        raise ValueError("Bounding boxes must be 2D arrays.")
+    # # Ensure inputs are 2D arrays
+    # if true_bbox.ndim != 2 or pred_bbox.ndim != 2:
+    #     raise ValueError("Bounding boxes must be 2D arrays.")
     
-    # Ensure each bounding box has four coordinates (x_min, y_min, x_max, y_max)
-    if true_bbox.shape[1] != 4 or pred_bbox.shape[1] != 4:
-        raise ValueError("Each bounding box must have exactly four coordinates.")
+    # # Ensure each bounding box has four coordinates (x_min, y_min, x_max, y_max)
+    # if true_bbox.shape[1] != 4 or pred_bbox.shape[1] != 4:
+    #     raise ValueError("Each bounding box must have exactly four coordinates.")
     
-    # Validate each bounding box
-    for bbox in true_bbox:
-        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
-            raise ValueError(f"Invalid bounding box: {bbox} in true_bbox")
-    for bbox in pred_bbox:
-        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
-            raise ValueError(f"Invalid bounding box: {bbox} in pred_bbox")
+    # # Validate each bounding box
+    # for bbox in true_bbox:
+    #     if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+    #         raise ValueError(f"Invalid bounding box: {bbox} in true_bbox")
+    # for bbox in pred_bbox:
+    #     if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+    #         raise ValueError(f"Invalid bounding box: {bbox} in pred_bbox")
     
-    # Ensure bounding boxes contain valid numeric types (int or float)
-    if not (np.issubdtype(true_bbox.dtype, np.integer) or np.issubdtype(true_bbox.dtype, np.floating)):
-        raise TypeError("true_bbox must contain int or float values.")
-    if not (np.issubdtype(pred_bbox.dtype, np.integer) or np.issubdtype(pred_bbox.dtype, np.floating)):
-        raise TypeError("pred_bbox must contain int or float values.")
+    # # Ensure bounding boxes contain valid numeric types (int or float)
+    # if not (np.issubdtype(true_bbox.dtype, np.integer) or np.issubdtype(true_bbox.dtype, np.floating)):
+    #     raise TypeError("true_bbox must contain int or float values.")
+    # if not (np.issubdtype(pred_bbox.dtype, np.integer) or np.issubdtype(pred_bbox.dtype, np.floating)):
+    #     raise TypeError("pred_bbox must contain int or float values.")
     
     # get the loss function values
     iou_value = None
     if metric == 'iou':
         loss = losses.IoULoss("XYXY", "linear")
-        iou_value = loss(true_bbox, pred_bbox).numpy()
+        iou_value = loss(true_bbox, pred_bbox)
     if metric == 'giou': 
         loss = losses.GIoULoss("XYXY")
-        iou_value = loss(true_bbox, pred_bbox).numpy()
+        iou_value = loss(true_bbox, pred_bbox)
     if metric == 'ciou':
         loss = losses.CIoULoss("XYXY")
-        iou_value = loss(true_bbox, pred_bbox).numpy()
+        iou_value = loss(true_bbox, pred_bbox)
         
     return iou_value
 
@@ -331,7 +398,6 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
         np.ndarray: compute matrix containing varon ratios for all frequency channels
     """
     final_matrix = []
-
     image_file_names = [
         "TOA_AVIRIS_460nm.tif",
         "TOA_AVIRIS_550nm.tif",
@@ -396,3 +462,37 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
         np.save(output_file, final_matrix)
 
     return final_matrix
+
+
+def get_global_normalization_mean_std(data):
+    """Function to calculate the global mean and standard deviation of the data
+
+    Args:
+        data (np.ndarray): numpy array containing image data
+
+    Returns:
+        tuple: (np.ndarray, np.ndarray) containing the mean and standard deviation of the data
+    """
+    mean_global = np.mean(data, axis=(0, 1, 2), keepdims=True)
+    std_global = np.std(data, axis=(0, 1, 2), keepdims=True)
+
+    std_global[std_global == 0] = 1.0
+    return mean_global, std_global
+
+
+
+def resize_data_and_labels(x, y, reshape_size):
+    """function to resize the data and labels to a specified size
+
+    Args:
+        x (np.ndarray or tf.tensor): image array
+        y (np.ndarray or tf.tensor): label array
+        reshape_size (tuple or list): shape to resize image and labels to
+
+    Returns:
+        tuple: (tf.tensor, tf.tensor): resized image and label arrays
+    """
+    x_resized = tf.image.resize(x, reshape_size)
+    y_resized = tf.image.resize(y, reshape_size)
+
+    return x_resized, y_resized

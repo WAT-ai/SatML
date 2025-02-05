@@ -3,6 +3,8 @@ import tensorflow as tf
 from tensorflow import keras
 from matplotlib import pyplot as plt
 
+from src.losses import dice_loss
+
 class Augment(tf.keras.layers.Layer):
   def __init__(self, flip=True, rotate=True, crop=False, seed=42):
     super().__init__()
@@ -47,7 +49,12 @@ class UNet():
                                       0.17859535, 1.4490424, 0.83888125, 0.52144384,
                                       0.6939981, 0.16807413, 0.1728661, 0.17979662,
                                       0.1645278, 0.15060072, 0.138635, 0.12866527])
-    
+        self.iou_metrics = keras.metrics.IoU(num_classes= num_classes, target_class_ids=[0])
+        self.AUC_metrics = keras.metrics.AUC()
+        self.FP_metrics = keras.metrics.FalsePositives()
+        self.TN_metrics = tf.keras.metrics.TrueNegatives()
+
+        
     def load_image(self, datapoint):
         # resize images to 128 x 128 pixels
         input_image = tf.image.resize(datapoint['image'], (128, 128))
@@ -149,33 +156,68 @@ class UNet():
         x = last(x)
 
         return tf.keras.Model(inputs=inputs, outputs=x)
+
+
+    def iou_metric(self, y_true, y_pred):   
+        # Apply softmax to logits
+        y_pred = tf.nn.softmax(y_pred, axis=-1)
+        y_pred = tf.argmax(y_pred, axis=-1)  
+        y_pred = tf.expand_dims(y_pred, axis=-1)  
+        
+        # Ensure y_true has the same type and shape
+        y_true = tf.cast(y_true, tf.int32)  # Shape: (batch_size, height, width, 1)
+
+        # Calculate IoU
+        self.iou_metrics.update_state(y_true, y_pred)
+        iou = self.iou_metrics.result()
+        
+        return iou
     
-    def dice_loss(self, y_true, y_pred):
-        # y_true shape [batch_size,128,128,1] dtype=float32
-        # y_pred shape [batch_size,128,128,num_classes] dtype=float32
-        # y_pred array of logits
+    def FPR_metric(self, y_true, y_pred):
+        # False positive rates
+        # Apply softmax to logits
         smooth = tf.constant(1e-17)
+        y_pred = tf.nn.softmax(y_pred, axis=-1)
+        y_pred = tf.argmax(y_pred, axis=-1)  
+        y_pred = tf.expand_dims(y_pred, axis=-1)  
+        
+        # Ensure y_true has the same type and shape
+        y_true = tf.cast(y_true, tf.int32)  # Shape: (batch_size, height, width, 1)
+        
+        # Update states for TN and FP metrics
+        self.FP_metrics.update_state(y_true, y_pred)
+        self.TN_metrics.update_state(y_true, y_pred)
+        TN = self.TN_metrics.result()
+        FP = self.FP_metrics.result()
+        
+        # Calculate FPR
+        FPR = FP / (FP + TN + smooth)
 
+        return FPR
+    
+    def AUC_metric(self, y_true, y_pred):
+        # Area under curve
+        # Apply softmax to logits
+        y_pred = tf.nn.softmax(y_pred, axis=-1)[..., 1]
+
+        # Ensure y_true has the same type and shape
         y_true = tf.cast(y_true, tf.int32)
-        y_true = tf.one_hot(y_true, depth=2, axis=-1)
-        y_true = tf.squeeze(y_true)
-        y_pred = tf.math.softmax(y_pred, axis=-1)
-
-        numerator = tf.reduce_sum(y_true * y_pred)
-        denominator = tf.reduce_sum(y_true + y_pred)
-        # numerator = tf.cast(numerator, tf.float32)
-        # denominator=tf.cast(denominator, tf.float32)
-        loss = 1.0 - 2.0 * (numerator + smooth) / (denominator + smooth)
-
-        return loss
-
+        self.AUC_metrics.update_state(y_true, y_pred)
+        AUC = self.AUC_metrics.result()
+        
+        return AUC
+        
     def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=1, lr=0.001):
        self.model.compile(optimizer='adam',
                         #   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                          loss=self.dice_loss,
-                          metrics=['accuracy'])
-       
-       train_length, val_length = len(train_dataset), len(val_dataset)
+                          loss=dice_loss,
+                          metrics=[
+                                   'accuracy',
+                                   self.iou_metric,
+                                   self.AUC_metric,
+                                   self.FPR_metric,
+                                   ],
+                          )
        
        train_images = train_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
        val_images = val_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
@@ -185,19 +227,14 @@ class UNet():
           .cache()
           .shuffle(buffer_size)
           .batch(batch_size)
-          .repeat()
+          .repeat(2)
           .map(Augment())
           .prefetch(buffer_size=tf.data.AUTOTUNE))
        
        val_batches = val_images.batch(batch_size)
-
-       steps_per_epoch = train_length // batch_size
-       validation_steps = val_length // batch_size // val_subsplits
        
        model_history = self.model.fit(train_batches, 
                                       epochs=epochs,
-                                      steps_per_epoch=steps_per_epoch,
-                                    #   validation_steps=validation_steps,
                                       validation_data=val_batches)
        
        return model_history
