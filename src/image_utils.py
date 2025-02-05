@@ -7,7 +7,6 @@ from skimage import measure
 import matplotlib.pyplot as plt
 from ipywidgets import interact
 from typing import List, Tuple, Generator
-import math
 from keras_cv import losses
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
@@ -462,3 +461,37 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
         np.save(output_file, final_matrix)
 
     return final_matrix
+
+
+def get_global_normalization_mean_std(data):
+    """Function to calculate the global mean and standard deviation of the data
+
+    Args:
+        data (np.ndarray): numpy array containing image data
+
+    Returns:
+        tuple: (np.ndarray, np.ndarray) containing the mean and standard deviation of the data
+    """
+    mean_global = np.mean(data, axis=(0, 1, 2), keepdims=True)
+    std_global = np.std(data, axis=(0, 1, 2), keepdims=True)
+
+    std_global[std_global == 0] = 1.0
+    return mean_global, std_global
+
+
+
+def resize_data_and_labels(x, y, reshape_size):
+    """function to resize the data and labels to a specified size
+
+    Args:
+        x (np.ndarray or tf.tensor): image array
+        y (np.ndarray or tf.tensor): label array
+        reshape_size (tuple or list): shape to resize image and labels to
+
+    Returns:
+        tuple: (tf.tensor, tf.tensor): resized image and label arrays
+    """
+    x_resized = tf.image.resize(x, reshape_size)
+    y_resized = tf.image.resize(y, reshape_size)
+
+    return x_resized, y_resized
