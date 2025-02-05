@@ -219,10 +219,22 @@ class BBoxModel:
         with open(f"{output_dir}/{self.unique_id}_attrs.yaml", "w") as attrs_file:
             yaml.safe_dump(attrs_dict, attrs_file)
 
-    @staticmethod
-    def load(filepath):
-        model = load_model(filepath, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error})
-        return model
+    @classmethod
+    def load(cls, model_attrs_file: str):
+        model_attrs = yaml.safe_load(open(model_attrs_file))
+        model_file = model_attrs_file.replace("_attrs.yaml", "_bbox_model.h5")
+
+        obj = cls(
+            input_shape=model_attrs['input_shape'],
+            max_boxes=model_attrs['max_boxes'],
+            normalize=model_attrs['normalize'],
+        )
+
+        obj.norm_mean = model_attrs.get("norm_mean", None)
+        obj.norm_std = model_attrs.get("norm_std", None)
+
+        obj.model = load_model(model_file, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error})
+        return obj
 
 
 if __name__ == "__main__":
