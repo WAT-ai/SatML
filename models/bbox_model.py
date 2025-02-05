@@ -68,7 +68,7 @@ class BBoxModel:
     def compile(
         self,
         optimizer=Adam(learning_rate=0.0001),
-        loss=modified_mean_squared_error,
+        loss=iou_loss,
         metrics=["mae", "accuracy"],
     ):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)

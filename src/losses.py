@@ -128,47 +128,53 @@ def modified_mean_squared_error(y_true, y_pred):
     return tf.reduce_mean(final_loss)  # Reduce over batch
 
 def iou_loss(y_true, y_pred):
-    """Computes IoU loss for bounding boxes in (x-left, x-right, y-top, y-bottom) format."""
-    # Reshape from (batch, n, 4) to (batch * n, 4)
-    y_true = tf.reshape(y_true, [-1, 4])
-    y_pred = tf.reshape(y_pred, [-1, 4])
-
-    # Check if the ground truth and predicted boxes are all negative (invalid bounding box)
-    all_negative_true = tf.reduce_all(y_true < 0, axis=1)
-    all_negative_pred = tf.reduce_all(y_pred < 0, axis=1)
+    """
+    Modified Iou loss function for bounding box regression.
     
-    # Mask where both boxes are negative
-    valid_boxes_mask = tf.logical_and(all_negative_true, all_negative_pred)
+    Args:
+        y_true: Tensor of shape (batch_size, n, 4) with ground truth bounding boxes.
+        y_pred: Tensor of shape (batch_size, n, 4) with predicted bounding boxes.
     
-    # Extract min/max coordinates for valid boxes
-    x_min_pred, x_max_pred = y_pred[:, 0], y_pred[:, 1]
-    y_min_pred, y_max_pred = y_pred[:, 2], y_pred[:, 3]
+    Returns:
+        A scalar tensor representing the loss.
+    """
 
-    x_min_true, x_max_true = y_true[:, 0], y_true[:, 1]
-    y_min_true, y_max_true = y_true[:, 2], y_true[:, 3]
+    # Mask for valid bounding boxes
+    valid_mask = tf.reduce_all(y_true != -1, axis=-1, keepdims=True)  # Shape: (batch_size, n, 1)
+    pred_valid_mask = tf.reduce_all(y_pred != -1, axis=-1, keepdims=True)  # (batch_size, n, 1)
 
-    # Compute intersection for valid boxes
-    x_min_inter = tf.maximum(x_min_pred, x_min_true)
-    y_min_inter = tf.maximum(y_min_pred, y_min_true)
-    x_max_inter = tf.minimum(x_max_pred, x_max_true)
-    y_max_inter = tf.minimum(y_max_pred, y_max_true)
+    # Extract box coordinates
+    x1_true, x2_true, y1_true, y2_true = tf.split(y_true, 4, axis=-1)
+    x1_pred, x2_pred, y1_pred, y2_pred = tf.split(y_pred, 4, axis=-1)
 
-    inter_width = tf.maximum(0.0, x_max_inter - x_min_inter)
-    inter_height = tf.maximum(0.0, y_max_inter - y_min_inter)
-    intersection_area = inter_width * inter_height
+    # Compute Intersection
+    x1_int = tf.maximum(x1_true, x1_pred)
+    x2_int = tf.minimum(x2_true, x2_pred)
+    y1_int = tf.maximum(y1_true, y1_pred)
+    y2_int = tf.minimum(y2_true, y2_pred)
 
-    # Compute union for valid boxes
-    pred_area = (x_max_pred - x_min_pred) * (y_max_pred - y_min_pred)
-    true_area = (x_max_true - x_min_true) * (y_max_true - y_min_true)
-    union_area = pred_area + true_area - intersection_area
+    inter_area = tf.maximum(0.0, x2_int - x1_int) * tf.maximum(0.0, y2_int - y1_int)
 
-    # Compute IoU
-    iou = intersection_area / (union_area + 1e-7)  # Small epsilon to prevent division by zero
+    # Compute Union
+    area_true = (x2_true - x1_true) * (y2_true - y1_true)
+    area_pred = (x2_pred - x1_pred) * (y2_pred - y1_pred)
+    union_area = area_true + area_pred - inter_area
 
-    # Compute IoU loss
-    iou_loss = 1 - iou
+    # IoU Calculation (avoid division by zero)
+    iou = inter_area / (union_area + 1e-6)
+    iou_loss = 1.0 - iou  # 1 - IoU to make it a loss
 
-    # Set IoU loss to 0 for invalid boxes, keep normal loss for valid boxes
-    final_loss = tf.where(valid_boxes_mask, 0.0, iou_loss)
+    # L1 Loss for precise localization
+    l1_loss = tf.abs(y_true - y_pred)
 
-    return tf.reduce_mean(final_loss)  # Reduce over batch
+    # Compute regular loss only for valid boxes
+    reg_loss = (iou_loss + 0.5 * l1_loss) * tf.cast(valid_mask, tf.float32)
+
+    # Penalize cases where y_true is invalid but y_pred is valid
+    invalid_pred_penalty = tf.cast(~valid_mask & pred_valid_mask, tf.float32) * 10.0
+
+    # Total loss
+    total_loss = reg_loss + invalid_pred_penalty
+
+    # Compute final loss by averaging over valid cases
+    return tf.reduce_sum(total_loss) / (tf.reduce_sum(tf.cast(valid_mask, tf.float32)) + tf.reduce_sum(invalid_pred_penalty) + 1e-6)
