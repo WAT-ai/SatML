@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from ipywidgets import interact
 from typing import List, Tuple, Generator
 from keras_cv import losses
-from constants import image_file_names
+from config.constants import image_file_names
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     """
