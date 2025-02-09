@@ -6,8 +6,9 @@ from typing import Optional, Union
 from skimage import measure
 import matplotlib.pyplot as plt
 from ipywidgets import interact
-from typing import List, Tuple, Generator
+from typing import Tuple, Generator
 from keras_cv import losses
+from config.constants import IMAGE_FILE_NAMES
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     """
@@ -98,7 +99,7 @@ def remove_outliers_with_zscore(data, threshold):
     return flat_data[np.abs(z_scores) < threshold]
 
 
-def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.ndarray, np.ndarray]:
+def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.ndarray, np.ndarray]:
     '''
     Extract all .tif images and their labels data from a given directory
 
@@ -160,30 +161,13 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
             - A numpy array of images with shape (512, 512, 16)
             - A numpy array of bounding box labels with shape (max_boxes, 4)
     """
-    file_names = [
-        "TOA_AVIRIS_460nm.tif",
-        "TOA_AVIRIS_550nm.tif",
-        "TOA_AVIRIS_640nm.tif",
-        "TOA_AVIRIS_2004nm.tif",
-        "TOA_AVIRIS_2109nm.tif",
-        "TOA_AVIRIS_2310nm.tif",
-        "TOA_AVIRIS_2350nm.tif",
-        "TOA_AVIRIS_2360nm.tif",
-        "TOA_WV3_SWIR1.tif",
-        "TOA_WV3_SWIR2.tif",
-        "TOA_WV3_SWIR3.tif",
-        "TOA_WV3_SWIR4.tif",
-        "TOA_WV3_SWIR5.tif",
-        "TOA_WV3_SWIR6.tif",
-        "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
 
     if os.path.isdir(dir):
         entries = [sub_dir for sub_dir in os.listdir(dir) if sub_dir not in exclude_dirs]
         for entry in entries:
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
-                images, label_mask = load_image_set(sub_dir, file_names)
+                images, label_mask = load_image_set(sub_dir, IMAGE_FILE_NAMES)
 
                 if label_mask.ndim > 2:
                     label_mask = np.squeeze(label_mask)
@@ -221,29 +205,11 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
         - Each yielded tuple corresponds to a batch of images and labels from a subdirectory.
     """
 
-    file_names = [
-        "TOA_AVIRIS_460nm.tif",
-        "TOA_AVIRIS_550nm.tif",
-        "TOA_AVIRIS_640nm.tif",
-        "TOA_AVIRIS_2004nm.tif",
-        "TOA_AVIRIS_2109nm.tif",
-        "TOA_AVIRIS_2310nm.tif",
-        "TOA_AVIRIS_2350nm.tif",
-        "TOA_AVIRIS_2360nm.tif",
-        "TOA_WV3_SWIR1.tif",
-        "TOA_WV3_SWIR2.tif",
-        "TOA_WV3_SWIR3.tif",
-        "TOA_WV3_SWIR4.tif",
-        "TOA_WV3_SWIR5.tif",
-        "TOA_WV3_SWIR6.tif",
-        "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
-
     if os.path.isdir(dir):
         for entry in os.listdir(dir):
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
-                images, labels = load_image_set(sub_dir, file_names)        
+                images, labels = load_image_set(sub_dir, IMAGE_FILE_NAMES)        
                 yield images, labels
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
@@ -397,23 +363,6 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
         np.ndarray: compute matrix containing varon ratios for all frequency channels
     """
     final_matrix = []
-    image_file_names = [
-        "TOA_AVIRIS_460nm.tif",
-        "TOA_AVIRIS_550nm.tif",
-        "TOA_AVIRIS_640nm.tif",
-        "TOA_AVIRIS_2004nm.tif",
-        "TOA_AVIRIS_2109nm.tif",
-        "TOA_AVIRIS_2310nm.tif",
-        "TOA_AVIRIS_2350nm.tif",
-        "TOA_AVIRIS_2360nm.tif",
-        "TOA_WV3_SWIR1.tif",
-        "TOA_WV3_SWIR2.tif",
-        "TOA_WV3_SWIR3.tif",
-        "TOA_WV3_SWIR4.tif",
-        "TOA_WV3_SWIR5.tif",
-        "TOA_WV3_SWIR6.tif",
-        "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
 
     folders_to_process = os.listdir(dir_path) if images is None else images
 
@@ -426,7 +375,7 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
         hyperspectral_images = []
         image_prime_sums = []
         for i in range(num_bands):
-            img_path = os.path.join(folder_path, image_file_names[i])
+            img_path = os.path.join(folder_path, IMAGE_FILE_NAMES[i])
             
             with Image.open(img_path) as img_data:
                 img_array = np.array(img_data)
