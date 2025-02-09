@@ -1,4 +1,4 @@
-image_file_names = [
+IMAGE_FILE_NAMES = (
         "TOA_AVIRIS_460nm.tif",
         "TOA_AVIRIS_550nm.tif",
         "TOA_AVIRIS_640nm.tif",
@@ -14,4 +14,4 @@ image_file_names = [
         "TOA_WV3_SWIR5.tif",
         "TOA_WV3_SWIR6.tif",
         "TOA_WV3_SWIR7.tif",
-        "TOA_WV3_SWIR8.tif"]
+        "TOA_WV3_SWIR8.tif")
