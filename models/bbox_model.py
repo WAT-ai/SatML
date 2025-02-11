@@ -108,6 +108,15 @@ class BBoxModel:
         return mean, stddev
 
     def preprocess_dataset(self, dataset: tf.data.Dataset):
+        def is_valid_sample(image, bboxes):
+            """Returns True if the image has at least one valid bounding box."""
+            valid_mask = tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool)
+            return tf.reduce_any(valid_mask)
+
+        def is_invalid_sample(image, bboxes):
+            """Returns True if the image has only invalid bounding boxes."""
+            return tf.logical_not(is_valid_sample(image, bboxes))
+
         mean, std = self.get_normalization_constants(dataset) if self.normalize else (0.0, 1.0)
 
         # resize images
@@ -116,10 +125,24 @@ class BBoxModel:
         # normalize images
         if self.normalize:
             dataset = dataset.map(lambda img, lab: (BBoxModel.normalize_image(img, mean, std), lab))
+        dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, self.input_shape)))
+
+        dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
+
+        # filter invalid samples
+        # Split datasets
+        valid_ds = dataset.filter(is_valid_sample)
+        invalid_ds = dataset.filter(is_invalid_sample)
+
+        # Balance datasets with controlled ratio
+        dataset = tf.data.Dataset.sample_from_datasets(
+            [valid_ds, invalid_ds], weights=[0.9, 0.1], seed=42, stop_on_empty_dataset=True
+        )
 
         # augment images
-        dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
-        dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, self.input_shape)))
+        dataset = dataset.prefetch(
+            tf.data.experimental.AUTOTUNE
+        ).cache()
 
         return dataset
 
@@ -134,24 +157,30 @@ class BBoxModel:
 
         # Normalize bounding box coordinates
         bbox = tf.stack([
-            bbox[..., 0] / width,   # x-left
-            bbox[..., 1] / width,   # x-right
-            bbox[..., 2] / height,  # y-top
-            bbox[..., 3] / height   # y-bottom
+            tf.round(bbox[..., 0] / width * 100) / 100,   # x-left
+            tf.round(bbox[..., 1] / width * 100) / 100,   # x-right
+            tf.round(bbox[..., 2] / height * 100) / 100,  # y-top
+            tf.round(bbox[..., 3] / height * 100) / 100   # y-bottom
         ], axis=-1)
 
         return bbox
 
     @staticmethod
     def augment_image(image, bboxes, transformation):
-        if transformation == "none":
-            return image, bboxes
-
         augmented_bboxes = []
         valid_mask = tf.cast(tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
+        has_valid_boxes = tf.reduce_any(valid_mask)
+
+        if transformation == "none":
+            return (image, bboxes) if has_valid_boxes else (image, tf.zeros_like(bboxes))
+
+
+        if not has_valid_boxes:
+            print("No valid bounding boxes found. Skipping augmentation.")
+            return image, tf.zeros_like(bboxes)
+
         valid_mask = tf.expand_dims(valid_mask, axis=-1)
         valid_mask = tf.broadcast_to(valid_mask, tf.shape(bboxes))
-        image_shape = tf.cast(tf.shape(image), tf.float32)
 
         if transformation == "horizontal_flip":
             image = tf.image.flip_left_right(image)
@@ -159,14 +188,14 @@ class BBoxModel:
                 valid_mask,
                 tf.stack(
                     [
-                        image_shape[1] - bboxes[:, 1] - 1,
-                        image_shape[1] - bboxes[:, 0] - 1,
+                        1 - bboxes[:, 1],
+                        1 - bboxes[:, 0],
                         bboxes[:, 2],
                         bboxes[:, 3],
                     ],
                     axis=1,
                 ),
-                tf.fill(tf.shape(bboxes), -1.0),
+                tf.fill(tf.shape(bboxes), 0.0),
             )
         elif transformation == "vertical_flip":
             image = tf.image.flip_up_down(image)
@@ -176,12 +205,12 @@ class BBoxModel:
                     [
                         bboxes[:, 0],
                         bboxes[:, 1],
-                        image_shape[0] - bboxes[:, 3] - 1,
-                        image_shape[0] - bboxes[:, 2] - 1,
+                        1 - bboxes[:, 3],
+                        1 - bboxes[:, 2],
                     ],
                     axis=1,
                 ),
-                tf.fill(tf.shape(bboxes), -1.0),
+                tf.fill(tf.shape(bboxes), 0.0),
             )
         elif transformation == "rotate":
             image = tf.image.rot90(image)
@@ -189,16 +218,35 @@ class BBoxModel:
                 valid_mask,
                 tf.stack(
                     [
-                        bboxes[:, 2],
-                        bboxes[:, 3],
-                        image_shape[1] - bboxes[:, 1] - 1,
-                        image_shape[1] - bboxes[:, 0] - 1,
+                        1 - bboxes[:, 3],
+                        1 - bboxes[:, 2],
+                        bboxes[:, 0],
+                        bboxes[:, 1],
                     ],
                     axis=1,
                 ),
-                tf.fill(tf.shape(bboxes), -1.0),
+                tf.fill(tf.shape(bboxes), 0.0),
             )
         return image, augmented_bboxes
+
+    @staticmethod
+    def filter_invalid_sample(image, bboxes, threshold=0.5):
+        """
+        Returns True if the sample contains enough valid bounding boxes.
+
+        Args:
+            image (tf.Tensor): The image tensor.
+            bboxes (tf.Tensor): The bounding boxes tensor.
+            threshold (float): Minimum proportion of valid bounding boxes.
+
+        Returns:
+            tf.bool: Whether the sample should be kept.
+        """
+        valid_mask = tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool)
+        valid_count = tf.reduce_sum(tf.cast(valid_mask, tf.float32))
+        total_count = tf.cast(tf.shape(bboxes)[0], tf.float32)
+
+        return valid_count / total_count >= threshold
 
     @staticmethod
     def augment_dataset(
@@ -212,9 +260,32 @@ class BBoxModel:
             datasets.append(tf.data.Dataset.from_tensors((img, box)))
         return tf.data.Dataset.from_tensor_slices(datasets).flat_map(lambda x: x)
 
-    def train(self, train_dataset, epochs=10, batch_size=8):
+    def train(self, dataset, epochs=10, batch_size=8):
+        # Splitting the dataset for training and testing.
+        def is_test(x, _):
+            return x % 4 == 0
+
+        def is_train(x, y):
+            return not is_test(x, y)
+
+        def recover(x, y):
+            return y
+
+        # Split the dataset for training.
+        test_dataset = dataset.enumerate().filter(is_test).map(recover)
+
+        # Split the dataset for testing/validation.
+        train_dataset = dataset.enumerate().filter(is_train).map(recover)
+        lr_patience = 20
+        callbacks = [
+            tf.keras.callbacks.ReduceLROnPlateau(
+                monitor="val_loss", factor=0.1, patience=lr_patience, min_lr=1e-6, verbose=1
+            ),
+            tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=lr_patience * 2.5, restore_best_weights=True),
+        ]
         train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
-        return self.model.fit(train_dataset, epochs=epochs)
+        test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
+        return self.model.fit(train_dataset, epochs=epochs, callbacks=callbacks, validation_data=test_dataset)
 
     def evaluate(self, test_data):
         return self.model.evaluate(test_data)
