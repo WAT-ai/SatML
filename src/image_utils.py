@@ -131,7 +131,7 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.nd
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
 
-        return np.stack(images, axis=-1), np.expand_dims(data, axis=-1) # Stack the image & labels array layerwise
+        return np.stack(images, axis=-1), np.expand_dims(labels[0], axis=-1) # Stack the image & labels array layerwise
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
 
@@ -195,9 +195,9 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
                 bboxes = [bbox for bbox in [get_single_bounding_box(label_mask)] if is_valid_bbox(bbox)]
 
                 if len(bboxes) < max_boxes:
-                    bboxes.extend([[-1, -1, -1, -1]] * (max_boxes - len(bboxes)))
+                    bboxes.extend([[0, 0, 0, 0]] * (max_boxes - len(bboxes)))
 
-                yield images, np.array(bboxes)
+                yield images, np.array(bboxes, dtype=np.float32)
 
 
 def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
@@ -275,12 +275,13 @@ def binary_bbox(label_mask):
     return np.array(bboxes)
 
 
-def get_single_bounding_box(mask: np.ndarray):
+def get_single_bounding_box(mask: np.ndarray, force_square: bool = True):
     """
     Generate a bounding box around a binary mask in a given 2D array.
 
     Parameters:
         mask (np.ndarray): A 2D numpy array representing the binary mask.
+        force_square (bool): If True, adjust the bounding box to be square.
 
     Returns:
         np.array: An array of four integers (x_left, x_right, y_top, y_bottom).
@@ -294,7 +295,7 @@ def get_single_bounding_box(mask: np.ndarray):
 
     if non_zero_indices.size == 0:
         # No mask present
-        return -1, -1, -1, -1
+        return np.array([0, 0, 0, 0], dtype=np.float32)
 
     # Calculate the bounding box coordinates
     y_coords, x_coords = non_zero_indices[:, 0], non_zero_indices[:, 1]
@@ -303,7 +304,37 @@ def get_single_bounding_box(mask: np.ndarray):
     y_top = np.min(y_coords)
     y_bottom = np.max(y_coords)
 
-    return np.array([x_left, x_right, y_top, y_bottom])
+    if force_square:
+        width = x_right - x_left
+        height = y_bottom - y_top
+        side_length = max(width, height)
+
+        # Center the square around the original bounding box
+        x_center = (x_left + x_right) // 2
+        y_center = (y_top + y_bottom) // 2
+
+        half_side = side_length // 2
+        x_left = max(0, x_center - half_side)
+        x_right = x_left + side_length
+        y_top = max(0, y_center - half_side)
+        y_bottom = y_top + side_length
+
+        # Adjust if the square goes beyond the mask dimensions
+        if x_right >= mask.shape[1]:
+            x_right = mask.shape[1] - 1
+            x_left = x_right - side_length
+
+        if y_bottom >= mask.shape[0]:
+            y_bottom = mask.shape[0] - 1
+            y_top = y_bottom - side_length
+
+        # Ensure coordinates are within bounds
+        x_left = max(0, x_left)
+        y_top = max(0, y_top)
+        x_right = min(mask.shape[1] - 1, x_right)
+        y_bottom = min(mask.shape[0] - 1, y_bottom)
+
+    return np.array([x_left, x_right, y_top, y_bottom], dtype=np.float32)
 
 
 def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
