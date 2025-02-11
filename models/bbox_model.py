@@ -6,7 +6,7 @@ from datetime import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 
-from src.losses import iou_loss, modified_mean_squared_error
+from src.losses import iou_loss, modified_mean_squared_error, ciou_loss
 from src.data_loader import is_valid_bbox, create_bbox_dataset
 
 
@@ -36,40 +36,49 @@ class BBoxModel:
     def _build_model(self, img_shape, max_boxes):
         model = tf.keras.Sequential([
             tf.keras.layers.Input(shape=img_shape),
-            
-            # Encoder: Convolutional layers
+
+            # Encoder
+            tf.keras.layers.Conv2D(16, (3, 3), padding="same"),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.ELU(),
+            tf.keras.layers.MaxPooling2D((2, 2)),
+
+            tf.keras.layers.Conv2D(32, (3, 3), padding="same"),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.ELU(),
+            tf.keras.layers.MaxPooling2D((2, 2)),
+
             tf.keras.layers.Conv2D(64, (3, 3), padding="same"),
+            tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ELU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
-            
+
             tf.keras.layers.Conv2D(128, (3, 3), padding="same"),
+            tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ELU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            tf.keras.layers.Conv2D(256, (3, 3), padding="same"),
-            tf.keras.layers.ELU(),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            # Decoder: Convolution for bounding box regression
-            tf.keras.layers.Conv2D(512, (3, 3), padding="same"),
-            tf.keras.layers.ELU(),
-            
-            # Final convolutional layer for predicting bounding boxes
-            tf.keras.layers.Conv2D(4 * max_boxes, (1, 1), padding="same"),
-            tf.keras.layers.ELU(),
-            
-            # Global Average Pooling to reduce spatial dimensions
+
+            # Bottleneck
             tf.keras.layers.GlobalAveragePooling2D(),
-            
-            # Reshape to (batch_size, max_boxes, 4)
-            tf.keras.layers.Reshape((max_boxes, 4))  # We want a fixed number of bounding boxes per image
+
+            # Dense Layers for Bounding Box Regression
+            tf.keras.layers.Dense(128, activation="relu"),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Dense(64, activation="relu"),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Dense(32, activation="relu"),
+            tf.keras.layers.BatchNormalization(),
+
+            # Bounding Box Output
+            tf.keras.layers.Dense(4 * max_boxes, activation="sigmoid"),  # One sigmoid only
+            tf.keras.layers.Reshape((max_boxes, 4))
         ])
         return model
 
     def compile(
         self,
-        optimizer=Adam(learning_rate=0.0001),
-        loss=iou_loss,
+        optimizer=Adam(learning_rate=0.001),
+        loss=ciou_loss,
         metrics=["mae", "accuracy"],
     ):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
