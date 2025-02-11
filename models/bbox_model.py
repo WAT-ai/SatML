@@ -1,5 +1,6 @@
 import sys
 import yaml
+import numpy as np
 import tensorflow as tf
 from datetime import datetime
 from tensorflow.keras.models import load_model
@@ -81,10 +82,10 @@ class BBoxModel:
         sum_squares = tf.zeros((16,), dtype=tf.float32)
         num_pixels = tf.Variable(0, dtype=tf.int32)
 
-        for image_batch, _ in dataset:
-            num_pixels.assign_add(tf.reduce_prod(tf.shape(image_batch)[:-1]))  # Total pixels across batch
-            sum_pixels += tf.reduce_sum(image_batch, axis=[0, 1, 2])  # Sum across height & width
-            sum_squares += tf.reduce_sum(tf.square(image_batch), axis=[0, 1, 2])  # Sum of squares
+        for image, _ in dataset:
+            num_pixels.assign_add(tf.reduce_prod(tf.shape(image)[:-1]))  # Total pixels across batch
+            sum_pixels += tf.reduce_sum(image, axis=[0, 1])  # Sum across height & width
+            sum_squares += tf.reduce_sum(tf.square(image), axis=[0, 1])  # Sum of squares
 
         mean = sum_pixels / tf.cast(num_pixels, tf.float32)
         variance = (sum_squares / tf.cast(num_pixels, tf.float32)) - tf.square(mean)
@@ -215,6 +216,8 @@ class BBoxModel:
     def save(self, output_dir):
         self.model.save(f"{output_dir}/{self.unique_id}_bbox_model.h5")
         attrs_dict = {k: self.__dict__[k] for k in self.__dict__ if k != "model"}
+        attrs_dict["norm_mean"] = self.norm_mean.tolist() if self.norm_mean is not None else None
+        attrs_dict["norm_std"] = self.norm_std.tolist() if self.norm_std is not None else None
 
         with open(f"{output_dir}/{self.unique_id}_attrs.yaml", "w") as attrs_file:
             yaml.safe_dump(attrs_dict, attrs_file)
@@ -228,12 +231,16 @@ class BBoxModel:
             input_shape=model_attrs['input_shape'],
             max_boxes=model_attrs['max_boxes'],
             normalize=model_attrs['normalize'],
+            augmentations=model_attrs['augmentations'],
         )
 
         obj.norm_mean = model_attrs.get("norm_mean", None)
         obj.norm_std = model_attrs.get("norm_std", None)
 
-        obj.model = load_model(model_file, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error})
+        obj.norm_mean = np.array(obj.norm_mean) if obj.norm_mean is not None else None
+        obj.norm_std = np.array(obj.norm_std) if obj.norm_std is not None else None
+
+        obj.model = load_model(model_file, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error, 'ciou_loss': ciou_loss})
         return obj
 
 
