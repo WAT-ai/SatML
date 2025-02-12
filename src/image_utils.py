@@ -132,7 +132,7 @@ def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.n
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
 
-        return np.stack(images, axis=-1), np.expand_dims(data, axis=-1) # Stack the image & labels array layerwise
+        return np.stack(images, axis=-1), np.expand_dims(labels[0], axis=-1) # Stack the image & labels array layerwise
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
 
