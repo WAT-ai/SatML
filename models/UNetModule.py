@@ -206,8 +206,21 @@ class UNet():
         AUC = self.AUC_metrics.result()
         
         return AUC
+    
+class SaveEveryNEpochs(tf.keras.callbacks.Callback):
+    def __init__(self, save_every=15):
+        super(SaveEveryNEpochs, self).__init__()
+        self.save_every = save_every
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch + 1) % self.save_every == 0:  # Save at the end of every 15 epochs
+            filepath = f"unet_model_epoch_{epoch + 1:02d}.h5"
+            self.model.save(filepath)
+            print(f"Checkpoint saved at epoch {epoch + 1}.")
         
     def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=1, lr=0.001):
+       checkpoint_callback = SaveEveryNEpochs(save_every=15)
+       
        self.model.compile(optimizer='adam',
                         #   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                           loss=dice_loss,
@@ -233,9 +246,10 @@ class UNet():
        
        val_batches = val_images.batch(batch_size)
        
-       model_history = self.model.fit(train_batches, 
-                                      epochs=epochs,
-                                      validation_data=val_batches)
+       model_history = self.model.fit(train_batches,
+                                   epochs=epochs,
+                                   validation_data=val_batches,
+                                   callbacks=[checkpoint_callback])
        
        return model_history
 
