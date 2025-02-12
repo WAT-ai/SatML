@@ -1,5 +1,6 @@
 import sys
 import yaml
+import random
 import numpy as np
 import tensorflow as tf
 from datetime import datetime
@@ -40,38 +41,51 @@ class BBoxModel:
             # Encoder
             tf.keras.layers.Conv2D(16, (3, 3), padding="same"),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ELU(),
+            tf.keras.layers.LeakyReLU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
+            tf.keras.layers.Dropout(0.1),  # Dropout after first Conv block
 
             tf.keras.layers.Conv2D(32, (3, 3), padding="same"),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ELU(),
+            tf.keras.layers.LeakyReLU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
+            tf.keras.layers.Dropout(0.1),
 
             tf.keras.layers.Conv2D(64, (3, 3), padding="same"),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ELU(),
+            tf.keras.layers.Activation('swish'),  # Using Swish activation
             tf.keras.layers.MaxPooling2D((2, 2)),
+            tf.keras.layers.Dropout(0.2),  # Slightly higher dropout as depth increases
 
             tf.keras.layers.Conv2D(128, (3, 3), padding="same"),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.ELU(),
+            tf.keras.layers.Activation('swish'),
             tf.keras.layers.MaxPooling2D((2, 2)),
+            tf.keras.layers.Dropout(0.2),
 
             # Bottleneck
-            tf.keras.layers.GlobalAveragePooling2D(),
+            tf.keras.layers.Flatten(),  # Replaced GlobalAveragePooling2D with Flatten
+            tf.keras.layers.Dropout(0.3),  # Regularizing the bottleneck
 
             # Dense Layers for Bounding Box Regression
-            tf.keras.layers.Dense(128, activation="relu"),
+            tf.keras.layers.Dense(128, activation="gelu"),  # Using GELU activation
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Dense(64, activation="relu"),
+            tf.keras.layers.Dropout(0.5),  # High dropout to regularize fully connected layers
+
+            tf.keras.layers.Dense(64, activation="gelu"),
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Dense(32, activation="relu"),
+            tf.keras.layers.Dropout(0.3),
+
+            tf.keras.layers.Dense(32, activation="gelu"),
             tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Dropout(0.2),
 
             # Bounding Box Output
-            tf.keras.layers.Dense(4 * max_boxes, activation="sigmoid"),  # One sigmoid only
-            tf.keras.layers.Reshape((max_boxes, 4))
+            tf.keras.layers.Dense(4 * max_boxes, activation="sigmoid"),
+            tf.keras.layers.Reshape((max_boxes, 4)),
+
+            # multiply by image shape to get the actual bounding box coordinates
+            tf.keras.layers.Lambda(lambda x: tf.concat([x[..., :2] * img_shape[1], x[..., 2:] * img_shape[0]], axis=-1))
         ])
         return model
 
@@ -122,12 +136,13 @@ class BBoxModel:
         # resize images
         dataset = dataset.map(lambda img, lab: (tf.image.resize(img, self.input_shape[:-1]), lab))
 
+        # dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, self.input_shape)))
+
+        dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
+
         # normalize images
         if self.normalize:
             dataset = dataset.map(lambda img, lab: (BBoxModel.normalize_image(img, mean, std), lab))
-        dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, self.input_shape)))
-
-        dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
 
         # filter invalid samples
         # Split datasets
@@ -166,7 +181,7 @@ class BBoxModel:
         return bbox
 
     @staticmethod
-    def augment_image(image, bboxes, transformation):
+    def augment_image(image, bboxes, transformation, max_translate=0.3):
         augmented_bboxes = []
         valid_mask = tf.cast(tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
         has_valid_boxes = tf.reduce_any(valid_mask)
@@ -176,8 +191,9 @@ class BBoxModel:
 
 
         if not has_valid_boxes:
-            print("No valid bounding boxes found. Skipping augmentation.")
             return image, tf.zeros_like(bboxes)
+
+        image_shape = tf.cast(tf.shape(image), tf.float32)
 
         valid_mask = tf.expand_dims(valid_mask, axis=-1)
         valid_mask = tf.broadcast_to(valid_mask, tf.shape(bboxes))
@@ -188,8 +204,8 @@ class BBoxModel:
                 valid_mask,
                 tf.stack(
                     [
-                        1 - bboxes[:, 1],
-                        1 - bboxes[:, 0],
+                        image_shape[1] - bboxes[:, 1] - 1,
+                        image_shape[1] - bboxes[:, 0] - 1,
                         bboxes[:, 2],
                         bboxes[:, 3],
                     ],
@@ -205,8 +221,8 @@ class BBoxModel:
                     [
                         bboxes[:, 0],
                         bboxes[:, 1],
-                        1 - bboxes[:, 3],
-                        1 - bboxes[:, 2],
+                        image_shape[0] - bboxes[:, 3] - 1,
+                        image_shape[0] - bboxes[:, 2] - 1,
                     ],
                     axis=1,
                 ),
@@ -218,10 +234,44 @@ class BBoxModel:
                 valid_mask,
                 tf.stack(
                     [
-                        1 - bboxes[:, 3],
-                        1 - bboxes[:, 2],
+                        image_shape[0] - bboxes[:, 3] - 1,
+                        image_shape[0] - bboxes[:, 2] - 1,
                         bboxes[:, 0],
                         bboxes[:, 1],
+                    ],
+                    axis=1,
+                ),
+                tf.fill(tf.shape(bboxes), 0.0),
+            )
+        elif transformation == "translate":
+            # Generate random translation offsets within the max_translate range
+            dx = random.uniform(-max_translate, max_translate)
+            dy = random.uniform(-max_translate, max_translate)
+
+           # Convert to pixel shifts
+            shift_x = int(dx * tf.cast(tf.shape(image)[1], tf.float32))
+            shift_y = int(dy * tf.cast(tf.shape(image)[0], tf.float32))
+
+            # Pad and crop the image to simulate translation
+            paddings = [[tf.maximum(shift_y, 0), tf.maximum(-shift_y, 0)], [tf.maximum(shift_x, 0), tf.maximum(-shift_x, 0)], [0, 0]]
+            image = tf.pad(image, paddings, mode='CONSTANT', constant_values=0)
+            image = tf.image.crop_to_bounding_box(
+                image,
+                offset_height=tf.maximum(-shift_y, 0),
+                offset_width=tf.maximum(-shift_x, 0),
+                target_height=tf.shape(image)[0] - tf.abs(shift_y),
+                target_width=tf.shape(image)[1] - tf.abs(shift_x)
+            )
+
+            # Adjust bounding boxes
+            augmented_bboxes = tf.where(
+                valid_mask,
+                tf.stack(
+                    [
+                        tf.clip_by_value(bboxes[:, 0] + tf.cast(shift_x, tf.float32), 0.0, tf.cast(tf.shape(image)[1], tf.float32)),
+                        tf.clip_by_value(bboxes[:, 1] + tf.cast(shift_x, tf.float32), 0.0, tf.cast(tf.shape(image)[1], tf.float32)),
+                        tf.clip_by_value(bboxes[:, 2] + tf.cast(shift_y, tf.float32), 0.0, tf.cast(tf.shape(image)[0], tf.float32)),
+                        tf.clip_by_value(bboxes[:, 3] + tf.cast(shift_y, tf.float32), 0.0, tf.cast(tf.shape(image)[0], tf.float32)),
                     ],
                     axis=1,
                 ),
@@ -252,7 +302,7 @@ class BBoxModel:
     def augment_dataset(
         image,
         bbox,
-        augmentations=["none", "horizontal_flip", "vertical_flip", "rotate"],
+        augmentations=["none", "horizontal_flip", "vertical_flip", "rotate", "translate"],
     ):
         datasets = []
         for augmentation in augmentations:
