@@ -147,13 +147,14 @@ def is_valid_bbox(bbox: Union[np.ndarray, tf.Tensor]) -> bool:
 
     return True
 
-def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs: list = []) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs: list = [], force_square: bool = False) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """Load images and generate bounding boxes for labels from subdirectories of a specified directory
 
     Args:
         dir (str | os.PathLike): Path to the base directory containing image subdirectories
         max_boxes (int): Maximum number of bounding boxes to generate per image
         exclude_dirs (list): List of subdirectories to exclude from processing
+        force_square (bool): If True, adjust the bounding box to be square
 
     Yields:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]:
@@ -192,7 +193,7 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
                 label_mask = label_mask.astype(int)
 
                 # NOTE: get_single_bounding_box only generates one bounding box
-                bboxes = [bbox for bbox in [get_single_bounding_box(label_mask)] if is_valid_bbox(bbox)]
+                bboxes = [bbox for bbox in [get_single_bounding_box(label_mask, force_square=force_square)] if is_valid_bbox(bbox)]
 
                 if len(bboxes) < max_boxes:
                     bboxes.extend([[0, 0, 0, 0]] * (max_boxes - len(bboxes)))
