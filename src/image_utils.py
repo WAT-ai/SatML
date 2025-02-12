@@ -1,12 +1,12 @@
 import os
 import numpy as np
 import tensorflow as tf
-from PIL import Image
-from typing import Optional, Union
-from skimage import measure
 import matplotlib.pyplot as plt
+
+from PIL import Image
+from skimage import measure
+from typing import Tuple, Generator, Optional, Union
 from ipywidgets import interact
-from typing import Tuple, Generator
 from keras_cv import losses
 from config.constants import IMAGE_FILE_NAMES
 
@@ -184,12 +184,13 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
                 yield images, np.array(bboxes)
 
 
-def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = None) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
     Load images and their labels from subdirectories of a specified directory.
 
     Args:
         dir (str | os.PathLike): Path to the base directory containing image subdirectories.
+        file_names (Optional[list[str]], optional): A list of image file names to extract. Defaults to None.
 
     Yields:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
@@ -270,7 +271,6 @@ def get_single_bounding_box(mask: np.ndarray):
     y_bottom = np.max(y_coords)
 
     return np.array([x_left, x_right, y_top, y_bottom])
-
 
 def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
     """ Wrapper function for iou_metrics function, verifying bounding boxes and metric.
