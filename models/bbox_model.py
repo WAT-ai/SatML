@@ -344,7 +344,7 @@ class BBoxModel:
         return self.model.predict(x)
 
     def save(self, output_dir):
-        self.model.save(f"{output_dir}/{self.unique_id}_bbox_model.h5")
+        self.model.save(f"{output_dir}/{self.unique_id}_bbox_model.keras")
         attrs_dict = {k: self.__dict__[k] for k in self.__dict__ if k != "model"}
         attrs_dict["norm_mean"] = self.norm_mean.tolist() if self.norm_mean is not None else None
         attrs_dict["norm_std"] = self.norm_std.tolist() if self.norm_std is not None else None
@@ -352,10 +352,12 @@ class BBoxModel:
         with open(f"{output_dir}/{self.unique_id}_attrs.yaml", "w") as attrs_file:
             yaml.safe_dump(attrs_dict, attrs_file)
 
+        print(f"Model and attributes saved to {output_dir}: {self.unique_id}")
+
     @classmethod
     def load(cls, model_attrs_file: str):
         model_attrs = yaml.safe_load(open(model_attrs_file))
-        model_file = model_attrs_file.replace("_attrs.yaml", "_bbox_model.h5")
+        model_file = model_attrs_file.replace("_attrs.yaml", "_bbox_model.keras")
 
         obj = cls(
             input_shape=model_attrs['input_shape'],
@@ -370,7 +372,15 @@ class BBoxModel:
         obj.norm_mean = np.array(obj.norm_mean) if obj.norm_mean is not None else None
         obj.norm_std = np.array(obj.norm_std) if obj.norm_std is not None else None
 
-        obj.model = load_model(model_file, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error, 'ciou_loss': ciou_loss})
+        obj.model = load_model(
+            model_file,
+            custom_objects={
+                "iou_loss": iou_loss,
+                "modified_mean_squared_error": modified_mean_squared_error,
+                'ciou_loss': ciou_loss
+            },
+            safe_mode=False,    # This has to be false to allow loading the lambda layer
+        )
         return obj
 
 
