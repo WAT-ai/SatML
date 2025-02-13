@@ -1,5 +1,11 @@
 import yaml
-from config.types import PipelineType
+from enum import Enum
+
+
+class PipelineType(Enum):
+    TRAINING = "training"
+    INFERENCE = "inference"
+
 
 class PipelineManager:
 
