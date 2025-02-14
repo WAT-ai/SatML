@@ -97,8 +97,19 @@ class SegmentPipeline:
 
         # Apply the cropping function to each element and flatten the dataset
         cropped_dataset = original_dataset.flat_map(process_images)
-
-        return cropped_dataset
+        
+        # Reformat dataset into dictionary
+        def reformat_to_dict(feature, label):
+            
+            feature.set_shape([256, 256, 16])
+            label.set_shape([256, 256, 1])
+            
+            return {
+            'image': feature,
+            'segmentation_mask': label    
+            }
+    
+        return cropped_dataset.map(reformat_to_dict)
 
 if __name__ == "__main__":
     pipeline = SegmentPipeline(channels_of_interest=None, num_classes=1, target_shape=(256, 256))

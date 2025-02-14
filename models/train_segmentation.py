@@ -4,8 +4,9 @@ import tensorflow as tf
 from datetime import datetime
 from models.UNetModule import UNet
 from models.cnn_model_factory import get_no_downsample_cnn_model
-from src.image_utils import get_global_normalization_mean_std, resize_data_and_labels
+from src.image_utils import get_global_normalization_mean_std, resize_data_and_labels, get_single_bounding_box
 from src.data_loader import create_dataset
+from src.segment_pipeline import SegmentPipeline
 
 # Generator function for training data
 def train_generator(norm_mean, norm_std, train_x, train_y):
@@ -94,14 +95,20 @@ def train_no_downsample_cnn(
 if __name__ == "__main__":
     TIMESTAMP = datetime.now().strftime("%Y%m%d%H%M%S")
     parser = argparse.ArgumentParser()
-    parser.add_argument("-model_type", "--model_type", type=str, default="nds_cnn")
-    parser.add_argument("-data_path", "--data_path", type=str, default="/home/sarahmakki12/SatML/data/np_data")
-    parser.add_argument("-output_path", "--output_path", type=str, default="/home/sarahmakki12/SatML/logs")
+    parser.add_argument("-model_type", "--model_type", type=str, default="unet")
+    parser.add_argument("-data_path", "--data_path", type=str, default="./data/raw_data/STARCOP_train_easy")
+    parser.add_argument("-output_path", "--output_path", type=str, default="./logs")
     parser.add_argument("-input_channels", "--input_channels", type=int, default=16)
-    parser.add_argument("-num_classes", "--num_classes", type=int, default=2)
+    parser.add_argument("-num_classes", "--num_classes", type=int, default= 16)
     parser.add_argument("-epochs", "--epochs", type=int, default=20)
     args = parser.parse_args()
-
+    
+    pipeline = SegmentPipeline(
+        channels_of_interest= None,
+        num_classes= 1,
+        target_shape= (256, 256)
+    )
+    
     # Train model
     if args.model_type == "nds_cnn":
         # Load sample datasets
@@ -122,8 +129,7 @@ if __name__ == "__main__":
         )
     elif args.model_type == "unet":
         # Load the complete dataset
-        dataset = create_dataset(args.data_path)
-
+        dataset = pipeline.create_dataset(args.data_path)
         # Determine the total number of samples in the dataset
         total_samples = sum(1 for _ in dataset)
 
