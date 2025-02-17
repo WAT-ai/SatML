@@ -1,5 +1,6 @@
 import os
 import tensorflow as tf
+from src.DataLoader import DataLoader, DatasetType
 
 from src.image_utils import data_generator, bbox_data_generator, is_valid_bbox
 
@@ -103,26 +104,36 @@ def augment_dataset(image, bbox, augmentations=["none", "horizontal_flip", "vert
     return tf.data.Dataset.from_tensor_slices(datasets).flat_map(lambda x: x)
 
 if __name__ == "__main__":
-    # testing the shapes of the images and bboxes
-    dataset = create_bbox_dataset(data_dir='./data/raw_data/STARCOP_train_easy')
-
+    # Test data loader for bounding box dataset
+    bbox_loader = DataLoader(
+        data_dir='./data/raw_data/STARCOP_train_easy',
+        dataset_type=DatasetType.BOUNDING_BOX,
+        batch_size=1
+    )
+    dataset = bbox_loader.get_dataset()
+    # Testing the shapes of images and bounding boxes
     for image, bbox in dataset.take(3):
-        print(f"original bounding box: {bbox}")
+        print(f"Original bounding box: {bbox}")
         print(f"Original Image Shape: {image.shape}, Original Bbox Shape: {bbox.shape}")
 
+    # Apply augmentation (assuming `augment_dataset` is defined elsewhere)
     augmented_dataset = dataset.flat_map(augment_dataset)
-
     for image, bbox in augmented_dataset.take(3):
-        print(f"augmented bounding box: {bbox}")
+        print(f"Augmented bounding box: {bbox}")
         print(f"Augmented Image Shape: {image.shape}, Augmented Bbox Shape: {bbox.shape}")
 
     
-    # Test the create_dataset function
-    train_data_path = './data/raw_data/STARCOP_train_easy'
-    dataset = create_dataset(train_data_path)
 
-    # Fetch a few samples from the dataset
-    for i, data_point in enumerate(dataset.take(3)):  # Verify first 3 samples
+    # Test data loader for segmentation dataset
+    segmentation_loader = DataLoader(
+        data_dir='./data/raw_data/STARCOP_train_easy',
+        dataset_type=DatasetType.SEGMENTATION,
+        batch_size=1
+    )
+
+    dataset = segmentation_loader.get_dataset()
+    # Fetch and verify a few samples from the dataset
+    for i, data_point in enumerate(dataset.take(3)):
         print(f"Sample {i + 1}:")
         print("Keys:", data_point.keys())
         print("Image shape:", data_point["image"].shape)

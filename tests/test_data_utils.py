@@ -1,6 +1,7 @@
 import unittest
-from data_utils import get_easy_ids
 import os
+
+from src.data_utils import get_easy_ids
 
 class TestDataUtils(unittest.TestCase):
 
