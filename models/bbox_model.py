@@ -20,11 +20,13 @@ class BBoxModel:
         augmentations=["none", "horizontal_flip", "vertical_flip", "rotate"],
         model_fn=None,
         model_filepath=None,
+        blank_percentage=0.1
     ):
         self.input_shape = input_shape
         self.max_boxes = max_boxes
         self.normalize = normalize
         self.augmentations = augmentations
+        self.blank_percentage = blank_percentage
         self.norm_mean = None
         self.norm_std = None
         self.unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -147,17 +149,15 @@ class BBoxModel:
         # filter invalid samples
         # Split datasets
         valid_ds = dataset.filter(is_valid_sample)
-        invalid_ds = dataset.filter(is_invalid_sample)
+        if self.blank_percentage > 0:
+            invalid_ds = dataset.filter(is_invalid_sample)
 
-        # Balance datasets with controlled ratio
-        dataset = tf.data.Dataset.sample_from_datasets(
-            [valid_ds, invalid_ds], weights=[0.9, 0.1], seed=42, stop_on_empty_dataset=True
-        )
-
-        # augment images
-        dataset = dataset.prefetch(
-            tf.data.experimental.AUTOTUNE
-        ).cache()
+            # Balance datasets with controlled ratio
+            dataset = tf.data.Dataset.sample_from_datasets(
+                [valid_ds, invalid_ds], weights=[1 - self.blank_percentage, self.blank_percentage], seed=42, stop_on_empty_dataset=True
+            )
+        else:
+            dataset = valid_ds
 
         return dataset
 
@@ -333,9 +333,10 @@ class BBoxModel:
             ),
             tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=lr_patience * 2.5, restore_best_weights=True),
         ]
-        train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
-        test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
-        return self.model.fit(train_dataset, epochs=epochs, callbacks=callbacks, validation_data=test_dataset)
+
+        train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE).cache()
+        test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE).cache()
+        self.model.fit(train_dataset, epochs=epochs, callbacks=callbacks, validation_data=test_dataset)
 
     def evaluate(self, test_data):
         return self.model.evaluate(test_data)
@@ -364,6 +365,7 @@ class BBoxModel:
             max_boxes=model_attrs['max_boxes'],
             normalize=model_attrs['normalize'],
             augmentations=model_attrs['augmentations'],
+            blank_percentage=model_attrs['blank_percentage']
         )
 
         obj.norm_mean = model_attrs.get("norm_mean", None)
@@ -394,6 +396,7 @@ if __name__ == "__main__":
     image_shape = config_dict.get("image_shape", (512, 512))
     normalize = config_dict.get("normalize", False)
     augmentations = config_dict.get("augmentations", ["none", "horizontal_flip", "vertical_flip", "rotate"])
+    blank_percentage = config_dict.get("blank_percentage", 0.1)
 
     exclude_dirs = config_dict.get("exclude_dirs", [])
     force_square = config_dict.get("force_square", False)
@@ -401,7 +404,7 @@ if __name__ == "__main__":
     batch_size = config_dict.get("batch_size", 8)
     epochs = config_dict.get("epochs", 10)
 
-    model = BBoxModel((*image_shape, 16), max_boxes, normalize=normalize, augmentations=augmentations)
+    model = BBoxModel((*image_shape, 16), max_boxes, normalize=normalize, augmentations=augmentations, blank_percentage=blank_percentage)
     model.compile()
     print(model.model.summary())
     print("Model created successfully.")
