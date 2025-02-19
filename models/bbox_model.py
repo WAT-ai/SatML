@@ -45,13 +45,11 @@ class BBoxModel:
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.LeakyReLU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
-            tf.keras.layers.Dropout(0.1),  # Dropout after first Conv block
 
             tf.keras.layers.Conv2D(32, (3, 3), padding="same"),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.LeakyReLU(),
             tf.keras.layers.MaxPooling2D((2, 2)),
-            tf.keras.layers.Dropout(0.1),
 
             tf.keras.layers.Conv2D(64, (3, 3), padding="same"),
             tf.keras.layers.BatchNormalization(),
@@ -66,13 +64,12 @@ class BBoxModel:
             tf.keras.layers.Dropout(0.2),
 
             # Bottleneck
-            tf.keras.layers.Flatten(),  # Replaced GlobalAveragePooling2D with Flatten
-            tf.keras.layers.Dropout(0.3),  # Regularizing the bottleneck
+            tf.keras.layers.Flatten(),
 
             # Dense Layers for Bounding Box Regression
             tf.keras.layers.Dense(128, activation="gelu"),  # Using GELU activation
             tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Dropout(0.5),  # High dropout to regularize fully connected layers
+            tf.keras.layers.Dropout(0.3),  # High dropout to regularize fully connected layers
 
             tf.keras.layers.Dense(64, activation="gelu"),
             tf.keras.layers.BatchNormalization(),
@@ -84,10 +81,7 @@ class BBoxModel:
 
             # Bounding Box Output
             tf.keras.layers.Dense(4 * max_boxes, activation="sigmoid"),
-            tf.keras.layers.Reshape((max_boxes, 4)),
-
-            # multiply by image shape to get the actual bounding box coordinates
-            tf.keras.layers.Lambda(lambda x: tf.concat([x[..., :2] * img_shape[1], x[..., 2:] * img_shape[0]], axis=-1))
+            tf.keras.layers.Reshape((max_boxes, 4))
         ])
         return model
 
@@ -135,10 +129,10 @@ class BBoxModel:
 
         mean, std = self.get_normalization_constants(dataset) if self.normalize else (0.0, 1.0)
 
+        dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, img.shape)))
+
         # resize images
         dataset = dataset.map(lambda img, lab: (tf.image.resize(img, self.input_shape[:-1]), lab))
-
-        # dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, self.input_shape)))
 
         dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
 
@@ -193,7 +187,6 @@ class BBoxModel:
         if not has_valid_boxes:
             return image, tf.zeros_like(bboxes)
 
-        image_shape = tf.cast(tf.shape(image), tf.float32)
 
         valid_mask = tf.expand_dims(valid_mask, axis=-1)
         valid_mask = tf.broadcast_to(valid_mask, tf.shape(bboxes))
@@ -204,8 +197,8 @@ class BBoxModel:
                 valid_mask,
                 tf.stack(
                     [
-                        image_shape[1] - bboxes[:, 1] - 1,
-                        image_shape[1] - bboxes[:, 0] - 1,
+                        1 - bboxes[:, 1],
+                        1 - bboxes[:, 0],
                         bboxes[:, 2],
                         bboxes[:, 3],
                     ],
@@ -221,8 +214,8 @@ class BBoxModel:
                     [
                         bboxes[:, 0],
                         bboxes[:, 1],
-                        image_shape[0] - bboxes[:, 3] - 1,
-                        image_shape[0] - bboxes[:, 2] - 1,
+                        1 - bboxes[:, 3],
+                        1 - bboxes[:, 2],
                     ],
                     axis=1,
                 ),
@@ -234,8 +227,8 @@ class BBoxModel:
                 valid_mask,
                 tf.stack(
                     [
-                        image_shape[0] - bboxes[:, 3] - 1,
-                        image_shape[0] - bboxes[:, 2] - 1,
+                        1 - bboxes[:, 3],
+                        1 - bboxes[:, 2],
                         bboxes[:, 0],
                         bboxes[:, 1],
                     ],
@@ -268,10 +261,10 @@ class BBoxModel:
                 valid_mask,
                 tf.stack(
                     [
-                        tf.clip_by_value(bboxes[:, 0] + tf.cast(shift_x, tf.float32), 0.0, tf.cast(tf.shape(image)[1], tf.float32)),
-                        tf.clip_by_value(bboxes[:, 1] + tf.cast(shift_x, tf.float32), 0.0, tf.cast(tf.shape(image)[1], tf.float32)),
-                        tf.clip_by_value(bboxes[:, 2] + tf.cast(shift_y, tf.float32), 0.0, tf.cast(tf.shape(image)[0], tf.float32)),
-                        tf.clip_by_value(bboxes[:, 3] + tf.cast(shift_y, tf.float32), 0.0, tf.cast(tf.shape(image)[0], tf.float32)),
+                        tf.clip_by_value(bboxes[:, 0] + tf.cast(dx, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
+                        tf.clip_by_value(bboxes[:, 1] + tf.cast(dx, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
+                        tf.clip_by_value(bboxes[:, 2] + tf.cast(dy, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
+                        tf.clip_by_value(bboxes[:, 3] + tf.cast(dy, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
                     ],
                     axis=1,
                 ),
