@@ -1,0 +1,6 @@
+steps:
+  - class: DataLoader
+    params:
+      dataset_dir: "./data/raw_data/STARCOP_train_easy"
+      dataset_type: bounding_box
+  

@@ -1,10 +1,7 @@
 import yaml
-from enum import Enum
 
-
-class PipelineType(Enum):
-    TRAINING = "training"
-    INFERENCE = "inference"
+from config.constants import PipelineType
+from src.data_loader.DataLoader import DataLoader
 
 
 class PipelineManager:
@@ -23,7 +20,20 @@ class PipelineManager:
     def build_pipeline(self):
         # Dynamically create pipeline steps based on its type
         if self.type == PipelineType.TRAINING:
-            pass
+            step_configs = self.config.get("steps", [])
+            
+            for step_config in step_configs:
+                class_name = step_config["class"]
+                params = step_config["params"]
+                
+                # Dynamically get class reference and instantiate it
+                cls = globals().get(class_name)  
+                if cls is None:
+                    raise ValueError(f"Class {class_name} not found")
+                
+                instance = cls(**params)
+                self.steps.append(instance)
+
         else:
             pass
 

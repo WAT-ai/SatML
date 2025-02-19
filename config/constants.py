@@ -1,3 +1,5 @@
+from enum import Enum
+
 IMAGE_FILE_NAMES = (
         "TOA_AVIRIS_460nm.tif",
         "TOA_AVIRIS_550nm.tif",
@@ -15,3 +17,11 @@ IMAGE_FILE_NAMES = (
         "TOA_WV3_SWIR6.tif",
         "TOA_WV3_SWIR7.tif",
         "TOA_WV3_SWIR8.tif")
+
+class PipelineType(Enum):
+    TRAINING = "training"
+    INFERENCE = "inference"
+
+class DatasetType(Enum):
+    SEGMENTATION = "segmentation"
+    BOUNDING_BOX = "bounding_box"

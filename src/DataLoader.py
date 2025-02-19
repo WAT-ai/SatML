@@ -1,20 +1,20 @@
 import tensorflow as tf
-from enum import Enum
+
+from config.constants import DatasetType
 from src.image_utils import data_generator, bbox_data_generator
 
 
-class DatasetType(Enum):
-    SEGMENTATION = "segmentation"
-    BOUNDING_BOX = "bounding_box"
-
-
 class DataLoader:
-    def __init__(self, data_dir, dataset_type: DatasetType, batch_size=32, max_boxes=10, exclude_dirs=[]):
-        self.data_dir = data_dir
-        self.dataset_type = dataset_type
+    def __init__(self, dataset_dir, dataset_type: DatasetType, batch_size=32, max_boxes=10, exclude_dirs=[]):
+        self.dataset_dir = dataset_dir
+        self.dataset_type = DatasetType(dataset_type)
         self.batch_size = batch_size
         self.max_boxes = max_boxes
         self.exclude_dirs = exclude_dirs
+        self.dataset = None
+
+    def execute(self):
+        print("Executing DataLoader step...")
         self.dataset = self._create_dataset()
 
     def _create_dataset(self):
@@ -24,6 +24,7 @@ class DataLoader:
         if self.dataset_type == DatasetType.SEGMENTATION:
             return self._create_segmentation_dataset()
         elif self.dataset_type == DatasetType.BOUNDING_BOX:
+            print("Successfully loaded bounding box data.")
             return self._create_bbox_dataset()
         else:
             raise ValueError(f"Unsupported dataset type: {self.dataset_type}")
