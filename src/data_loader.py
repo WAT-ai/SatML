@@ -1,6 +1,6 @@
 import os
 import tensorflow as tf
-from src.DataLoader import DataLoader, DatasetType
+from src.data_loader.DataLoader import DataLoader, DatasetType
 
 from src.image_utils import data_generator, bbox_data_generator, is_valid_bbox
 
