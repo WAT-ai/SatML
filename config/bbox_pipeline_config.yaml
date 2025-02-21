@@ -1,6 +1,20 @@
-steps:
-  - class: DataLoader
-    params:
-      dataset_dir: "./data/raw_data/STARCOP_train_easy"
-      dataset_type: bounding_box
-  
+DataLoader:
+  type: BoundingBoxDataLoader
+  params:
+    dataset_dir: "./data/raw_data/STARCOP_train_easy"
+
+Processor:
+  type: BoundingBoxProcessor
+  params:
+    config:
+      get_normalization_constants: True
+      resize: True
+      normalize_dataset: True
+      augment_dataset: True
+      normalize_bbox: True
+    input_shape: (512, 512, 16)
+    normalize: True
+    augmentations:
+      - horizontal_flip
+      - rotate
+

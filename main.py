@@ -7,8 +7,10 @@ if __name__ == "__main__":
     print("Initializing pipeline manager...")
     pipeline = PipelineManager(PipelineType.TRAINING, config_path)
 
-    print("Creating pipeline flow...")
-    pipeline.build_pipeline()
+    print("Loading dataset...")
+    pipeline.data_loader.create_dataset()
+    data = pipeline.data_loader.get_dataset()
 
-    print("Running pipeline flow...")
-    pipeline.run()
+    print("Processing dataset...")
+    pipeline.processor.preprocess(data)
+
