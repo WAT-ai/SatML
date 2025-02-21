@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from processor.BaseProcessor import BaseProcessor
+from src.processor.BaseProcessor import BaseProcessor
 from src.image_utils import is_valid_bbox
 
 class BoundingBoxProcessor(BaseProcessor):
@@ -34,6 +34,7 @@ class BoundingBoxProcessor(BaseProcessor):
         self.norm_std = tf.sqrt(variance)
 
         print(f"Normalization constants: mean={self.norm_mean}, stddev={self.norm_std}")
+        return dataset
     
     def resize(self, dataset):
         return dataset.map(lambda img, lab: (tf.image.resize(img, self.input_shape[:-1]), lab))
@@ -41,6 +42,7 @@ class BoundingBoxProcessor(BaseProcessor):
     def normalize_dataset(self, dataset):
         if self.normalize:
             return dataset.map(lambda img, lab: ((img - self.norm_mean) / self.norm_std, lab))
+        return dataset
 
     def augment_dataset(self, dataset):
         return dataset.flat_map(lambda img, bbox: tf.data.Dataset.from_tensor_slices(
