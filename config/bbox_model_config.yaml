@@ -265,9 +265,18 @@ exclude_dirs: [
   'ang20191023t194035_r4608_c256_w512_h512'
 ]
 
+image_shape: [512, 512]
+normalize: True
+force_square: False
+blank_percentage: 0.1
+
+augmentations:
+- 'none'
+- 'translate'
+
 # output config
 output_dir: './output/bbox_model'
 
 # Model hyperparameters
-num_epochs: 100
-batch_size: 8
+epochs: 200
+batch_size: 32
