@@ -7,6 +7,7 @@ CLASS_MAPPING = {
     "BoundingBoxDataLoader": "src.data_loader.BoundingBoxDataLoader.BoundingBoxDataLoader",
     "SegmentationDataLoader": "src.data_loader.SegmentationDataLoader.SegmentationDataLoader",
     "BoundingBoxProcessor": "src.processor.BoundingBoxProcessor.BoundingBoxProcessor",
+    "BoundingBoxModel": "models.BoundingBoxModel.BoundingBoxModel",
 }
 
 class PipelineManager:
@@ -18,6 +19,7 @@ class PipelineManager:
         self.config = self.load_config(config_path)
         self.data_loader = self._load_component("DataLoader")
         self.processor = self._load_component("Processor")
+        self.model = self._load_component("Model")
 
     def _load_component(self, key):
         """Dynamically loads a class from CLASS_MAPPING based on the YAML config."""

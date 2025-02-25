@@ -18,3 +18,8 @@ Processor:
       - horizontal_flip
       - rotate
 
+Model:
+  type: BoundingBoxModel
+  params:
+    input_shape: (512, 512, 16)
+    max_boxes: 1

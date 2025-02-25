@@ -1,5 +1,6 @@
 from pipeline.PipelineManager import PipelineManager
 from config.constants import PipelineType
+from models.BoundingBoxModel import BoundingBoxModel
 
 if __name__ == "__main__":
     config_path = "./config/bbox_pipeline_config.yaml"
@@ -14,3 +15,5 @@ if __name__ == "__main__":
     print("Processing dataset...")
     pipeline.processor.preprocess(data)
 
+    print("Creating model...")
+    pipeline.model.compile()

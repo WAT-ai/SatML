@@ -6,7 +6,7 @@ class BaseModel(ABC):
     """
 
     def __init__(self):
-        super().__init__()
+        pass
 
     @abstractmethod
     def build_model(self):
