@@ -158,7 +158,7 @@ def iou_loss(y_true, y_pred):
     return total_loss
 
 
-def ciou_loss(y_true, y_pred, lambda_reg=1, img_size=512):
+def ciou_loss(y_true, y_pred, lambda_reg=10, img_size=512):
     # Extract coordinates
     x_left_true, x_right_true, y_top_true, y_bottom_true = tf.split(y_true * img_size, 4, axis=-1)
     x_left_pred, x_right_pred, y_top_pred, y_bottom_pred = tf.split(y_pred * img_size, 4, axis=-1)
