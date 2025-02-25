@@ -271,8 +271,7 @@ force_square: False
 blank_percentage: 0.1
 
 augmentations:
-- 'none'
-- 'translate'
+- 'crop'
 
 # output config
 output_dir: './output/bbox_model'
