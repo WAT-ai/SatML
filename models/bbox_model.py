@@ -175,7 +175,7 @@ class BBoxModel:
         return bbox
 
     @staticmethod
-    def augment_image(image, bboxes, transformation, max_translate=0.3):
+    def augment_image(image, bboxes, transformation, max_translate=0.3, crop_fraction=0.6):
         augmented_bboxes = []
         valid_mask = tf.cast(tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
         has_valid_boxes = tf.reduce_any(valid_mask)
@@ -270,6 +270,35 @@ class BBoxModel:
                 ),
                 tf.fill(tf.shape(bboxes), 0.0),
             )
+        elif transformation == "crop":
+            img_h, img_w, _ = tf.unstack(tf.shape(image))
+
+            # Determine crop size
+            crop_h = tf.cast(tf.round(crop_fraction * tf.cast(img_h, tf.float32)), tf.int32)
+            crop_w = tf.cast(tf.round(crop_fraction * tf.cast(img_w, tf.float32)), tf.int32)
+
+            # Randomly select top-left corner for cropping
+            max_y_offset = img_h - crop_h
+            max_x_offset = img_w - crop_w
+            offset_y = tf.random.uniform([], 0, max_y_offset, dtype=tf.int32, seed=42)
+            offset_x = tf.random.uniform([], 0, max_x_offset, dtype=tf.int32, seed=42)
+
+            # Crop image
+            image = tf.image.crop_to_bounding_box(image, offset_y, offset_x, crop_h, crop_w)
+            # Resize back to original size
+            image = tf.image.resize(image, [img_h, img_w])
+
+            # Adjust bounding boxes
+            augmented_bboxes = tf.stack([
+                (bboxes[:, 0] - tf.cast(offset_x, tf.float32) / tf.cast(img_w, tf.float32)) / crop_fraction,
+                (bboxes[:, 1] - tf.cast(offset_x, tf.float32) / tf.cast(img_w, tf.float32)) / crop_fraction,
+                (bboxes[:, 2] - tf.cast(offset_y, tf.float32) / tf.cast(img_h, tf.float32)) / crop_fraction,
+                (bboxes[:, 3] - tf.cast(offset_y, tf.float32) / tf.cast(img_h, tf.float32)) / crop_fraction,
+            ], axis=1)
+
+            # Ensure bounding boxes are within valid range
+            augmented_bboxes = tf.clip_by_value(augmented_bboxes, 0.0, 1.0)
+
         return image, augmented_bboxes
 
     @staticmethod
@@ -324,7 +353,7 @@ class BBoxModel:
             tf.keras.callbacks.ReduceLROnPlateau(
                 monitor="val_loss", factor=0.1, patience=lr_patience, min_lr=1e-6, verbose=1
             ),
-            tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=lr_patience * 2.5, restore_best_weights=True),
+            tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=lr_patience * 2.5, restore_best_weights=False),
         ]
 
         train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE).cache()
