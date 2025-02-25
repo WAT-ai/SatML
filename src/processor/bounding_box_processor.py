@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from src.processor.BaseProcessor import BaseProcessor
+from src.processor.base_processor import BaseProcessor
 from src.image_utils import is_valid_bbox
 
 class BoundingBoxProcessor(BaseProcessor):

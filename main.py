@@ -1,6 +1,5 @@
-from pipeline.PipelineManager import PipelineManager
+from pipeline.pipeline_manager import PipelineManager
 from config.constants import PipelineType
-from models.BoundingBoxModel import BoundingBoxModel
 
 if __name__ == "__main__":
     config_path = "./config/bbox_pipeline_config.yaml"

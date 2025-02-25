@@ -5,7 +5,7 @@ import ast
 
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
-from models.BaseModel import BaseModel
+from models.base_model import BaseModel
 from src.losses import iou_loss, modified_mean_squared_error
 
 class BoundingBoxModel(BaseModel):

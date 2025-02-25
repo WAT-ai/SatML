@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from data_loader.BaseDataLoader import BaseDataLoader
+from src.data_loader.base_data_loader import BaseDataLoader
 from src.image_utils import data_generator
 
 class SegmentationDataLoader(BaseDataLoader):

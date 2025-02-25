@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from src.data_loader.BaseDataLoader import BaseDataLoader
+from src.data_loader.base_data_loader import BaseDataLoader
 from src.image_utils import bbox_data_generator
 
 class BoundingBoxDataLoader(BaseDataLoader):

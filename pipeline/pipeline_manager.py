@@ -4,10 +4,10 @@ import importlib
 from config.constants import PipelineType
 
 CLASS_MAPPING = {
-    "BoundingBoxDataLoader": "src.data_loader.BoundingBoxDataLoader.BoundingBoxDataLoader",
-    "SegmentationDataLoader": "src.data_loader.SegmentationDataLoader.SegmentationDataLoader",
-    "BoundingBoxProcessor": "src.processor.BoundingBoxProcessor.BoundingBoxProcessor",
-    "BoundingBoxModel": "models.BoundingBoxModel.BoundingBoxModel",
+    "BoundingBoxDataLoader": "src.data_loader.bounding_box_data_loader.BoundingBoxDataLoader",
+    "SegmentationDataLoader": "src.data_loader.segmentation_data_loader.SegmentationDataLoader",
+    "BoundingBoxProcessor": "src.processor.bounding_box_processor.BoundingBoxProcessor",
+    "BoundingBoxModel": "models.bounding_box_model.BoundingBoxModel",
 }
 
 class PipelineManager:
