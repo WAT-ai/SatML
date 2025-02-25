@@ -7,7 +7,7 @@ class SegmentationDataLoader(BaseDataLoader):
     def __init__(self, dataset_dir, batch_size=32, exclude_dirs=[]):
         super().__init__(dataset_dir, batch_size, exclude_dirs)
 
-    def _create_dataset(self):
+    def create_dataset(self):
         """
         Creates a TensorFlow dataset with images and labels grouped in dictionary format as given:
             - {"image": image_data, "segmentation_mask": label_data}
