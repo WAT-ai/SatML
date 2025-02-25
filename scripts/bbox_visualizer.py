@@ -15,7 +15,7 @@ bbox_model = BBoxModel.load(f"logs/{attrs_files[-1]}")
 
 dataset = create_bbox_dataset(
     "./data/raw_data/STARCOP_test", bbox_model.max_boxes
-).take(20)
+).take(50)
 
 dataset = bbox_model.preprocess_dataset(dataset)
 test_images = [x for x, _ in dataset]
