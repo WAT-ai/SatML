@@ -110,11 +110,13 @@ def train_no_downsample_cnn(
 if __name__ == "__main__":
     TIMESTAMP = datetime.now().strftime("%Y%m%d%H%M%S")
     parser = argparse.ArgumentParser()
-    parser.add_argument("-model_type", "--model_type", type=str, default="nds_cnn")
-    parser.add_argument("-data_path", "--data_path", type=str, default="./data/np_data/") # set to ./data/raw_data/STARCOP_train_easy , ./data/np_data/ for CNN
+     # set to ./data/raw_data/STARCOP_train_easy for Unet , ./data/np_data/ for CNN
+    parser.add_argument("-model_type", "--model_type", type=str, default="unet")
+    parser.add_argument("-data_path", "--data_path", type=str, default="./data/raw_data/STARCOP_train_easy")
     parser.add_argument("-output_path", "--output_path", type=str, default="./logs")
     parser.add_argument("-input_channels", "--input_channels", type=int, default=16)
-    parser.add_argument("-num_classes", "--num_classes", type=int, default= 1)  # set to 2 for UNet, 1 for CNN
+    # set to 2 for UNet, 1 for CNN
+    parser.add_argument("-num_classes", "--num_classes", type=int, default= 2)  
     parser.add_argument("-epochs", "--epochs", type=int, default=20)
     args = parser.parse_args()
     
