@@ -1,5 +1,6 @@
 from tensorflow import keras
 from src.losses import weighted_bce_plus_dice
+from src.losses import dice_loss
 
 def get_no_downsample_cnn_model(
     input_shape, output_channels, loss_weight, show_summary=False
