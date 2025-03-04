@@ -33,36 +33,31 @@ class BBoxModel:
             self.model = model_fn(input_shape, max_boxes) if model_fn else self._build_model(input_shape, max_boxes)
 
     def _build_model(self, img_shape, max_boxes):
-        model = tf.keras.Sequential([
-            tf.keras.layers.Input(shape=img_shape),
-            
-            # Encoder: Convolutional layers
-            tf.keras.layers.Conv2D(64, (3, 3), padding="same"),
-            tf.keras.layers.ELU(),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            tf.keras.layers.Conv2D(128, (3, 3), padding="same"),
-            tf.keras.layers.ELU(),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            tf.keras.layers.Conv2D(256, (3, 3), padding="same"),
-            tf.keras.layers.ELU(),
-            tf.keras.layers.MaxPooling2D((2, 2)),
-            
-            # Decoder: Convolution for bounding box regression
-            tf.keras.layers.Conv2D(512, (3, 3), padding="same"),
-            tf.keras.layers.ELU(),
-            
-            # Final convolutional layer for predicting bounding boxes
-            tf.keras.layers.Conv2D(4 * max_boxes, (1, 1), padding="same"),
-            tf.keras.layers.ELU(),
-            
-            # Global Average Pooling to reduce spatial dimensions
-            tf.keras.layers.GlobalAveragePooling2D(),
-            
-            # Reshape to (batch_size, max_boxes, 4)
-            tf.keras.layers.Reshape((max_boxes, 4))  # We want a fixed number of bounding boxes per image
-        ])
+        model = tf.keras.Sequential(
+            [
+                tf.keras.layers.Input(shape=img_shape),
+                # Encoder: Convolutional layers
+                tf.keras.layers.Conv2D(64, (3, 3), padding="same"),
+                tf.keras.layers.ELU(),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Conv2D(128, (3, 3), padding="same"),
+                tf.keras.layers.ELU(),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                tf.keras.layers.Conv2D(256, (3, 3), padding="same"),
+                tf.keras.layers.ELU(),
+                tf.keras.layers.MaxPooling2D((2, 2)),
+                # Decoder: Convolution for bounding box regression
+                tf.keras.layers.Conv2D(512, (3, 3), padding="same"),
+                tf.keras.layers.ELU(),
+                # Final convolutional layer for predicting bounding boxes
+                tf.keras.layers.Conv2D(4 * max_boxes, (1, 1), padding="same"),
+                tf.keras.layers.ELU(),
+                # Global Average Pooling to reduce spatial dimensions
+                tf.keras.layers.GlobalAveragePooling2D(),
+                # Reshape to (batch_size, max_boxes, 4)
+                tf.keras.layers.Reshape((max_boxes, 4)),  # We want a fixed number of bounding boxes per image
+            ]
+        )
         return model
 
     def compile(
@@ -116,19 +111,22 @@ class BBoxModel:
     @staticmethod
     def normalize_image(image, mean, std):
         return (image - mean) / std
-    
+
     @staticmethod
     def normalize_bbox(bbox, img_shape):
         height = tf.cast(img_shape[0], tf.float32)
         width = tf.cast(img_shape[1], tf.float32)
 
         # Normalize bounding box coordinates
-        bbox = tf.stack([
-            bbox[..., 0] / width,   # x-left
-            bbox[..., 1] / width,   # x-right
-            bbox[..., 2] / height,  # y-top
-            bbox[..., 3] / height   # y-bottom
-        ], axis=-1)
+        bbox = tf.stack(
+            [
+                bbox[..., 0] / width,  # x-left
+                bbox[..., 1] / width,  # x-right
+                bbox[..., 2] / height,  # y-top
+                bbox[..., 3] / height,  # y-bottom
+            ],
+            axis=-1,
+        )
 
         return bbox
 
@@ -221,7 +219,9 @@ class BBoxModel:
 
     @staticmethod
     def load(filepath):
-        model = load_model(filepath, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error})
+        model = load_model(
+            filepath, custom_objects={"iou_loss": iou_loss, "modified_mean_squared_error": modified_mean_squared_error}
+        )
         return model
 
 
@@ -249,4 +249,4 @@ if __name__ == "__main__":
     train_dataset = model.preprocess_dataset(train_dataset)
     model.train(train_dataset, epochs=epochs, batch_size=batch_size)
 
-    model.save('./logs')
+    model.save("./logs")

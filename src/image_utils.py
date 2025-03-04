@@ -10,18 +10,19 @@ from ipywidgets import interact
 from keras_cv import losses
 from config.constants import IMAGE_FILE_NAMES
 
+
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     """
     reads a tiff file to a numpy array
     Assumes file exists
-    
+
     Args:
-        file_path (str | os.PathLike): 
+        file_path (str | os.PathLike):
 
     Returns:
         np.ndarray: numpy array containing file contents. Assumes BGR format
     """
-    pass # TODO: Finish this function
+    pass  # TODO: Finish this function
 
 
 def plot_tiff_images(dir: str | os.PathLike) -> None:
@@ -35,14 +36,14 @@ def plot_tiff_images(dir: str | os.PathLike) -> None:
         None
     """
 
-    dir_path = f"data/raw_data/STARCOP_train_easy/{dir}" # NOTE: Modularize to work with other datasets as needed
-    files_to_exclude = ['label_rgba.tif', 'labelbinary.tif', 'mag1c.tif', 'weight_mag1c.tif']
+    dir_path = f"data/raw_data/STARCOP_train_easy/{dir}"  # NOTE: Modularize to work with other datasets as needed
+    files_to_exclude = ["label_rgba.tif", "labelbinary.tif", "mag1c.tif", "weight_mag1c.tif"]
 
-    if os.path.isdir(dir_path): # Ensure the directory exists
+    if os.path.isdir(dir_path):  # Ensure the directory exists
         total_files = 0
         images = []
         for file in os.listdir(dir_path):
-            if file in files_to_exclude: # Skip files to exclude
+            if file in files_to_exclude:  # Skip files to exclude
                 continue
 
             total_files += 1
@@ -50,7 +51,7 @@ def plot_tiff_images(dir: str | os.PathLike) -> None:
             file_path = os.path.join(dir_path, file)
             try:
                 img = Image.open(file_path)
-                images.append((file, img)) # Store both filename and img object
+                images.append((file, img))  # Store both filename and img object
             except Exception as e:
                 print(f"Error reading {file_path}: {e}")
 
@@ -58,9 +59,9 @@ def plot_tiff_images(dir: str | os.PathLike) -> None:
 
         def show_image(idx):
             plt.figure(figsize=(5, 5))
-            plt.imshow(images[idx][1], cmap='gray')
+            plt.imshow(images[idx][1], cmap="gray")
             plt.title(f"Image {idx + 1} of {len(images)}: {images[idx][0]}")
-            plt.axis('off')
+            plt.axis("off")
             plt.show()
 
         # Create a slider for displaying images
@@ -78,33 +79,35 @@ absorption levels in a 2D array. The goal is to be able to compare these two ban
 by returning the mean and std deviation.
 Requires: B and S are the same dimensions, B != 0
 """
-def varonRatio(S, B, c):
 
+
+def varonRatio(S, B, c):
     ratio = np.where(B != 0, (c * S - B) / B, 0)
     mean = np.mean(ratio)
     std_deviation = np.std(ratio)
 
     return mean, std_deviation
 
+
 def remove_outliers_with_zscore(data, threshold):
     flat_data = data.flatten()
     mean = np.mean(flat_data)
     std_dev = np.std(flat_data)
 
-    if (std_dev != 0):
-       z_scores = (flat_data - mean) / std_dev
+    if std_dev != 0:
+        z_scores = (flat_data - mean) / std_dev
     else:
-       z_scores = 0
+        z_scores = 0
 
     return flat_data[np.abs(z_scores) < threshold]
 
 
 def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.ndarray, np.ndarray]:
-    '''
+    """
     Extract all .tif images and their labels data from a given directory
 
     Args:
-        dir (str | os.PathLike): 
+        dir (str | os.PathLike):
         file_names: list[str]: A list of image file names (frequencies) to extract
 
     Raises:
@@ -114,8 +117,8 @@ def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.n
         Tuple[List[np.ndarray], List[np.ndarray]]:
             - Images stored as numpy float32 arrays with shape (512, 512, 16)
             - Labels data stored as numpy float32 arrays with shape (512, 512, 1)
-    '''
-    img_labels = ['labelbinary.tif']  # Image label files to extract
+    """
+    img_labels = ["labelbinary.tif"]  # Image label files to extract
 
     if os.path.isdir(dir):
         images, labels = [], []
@@ -124,7 +127,7 @@ def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.n
                 file_path = os.path.join(dir, file)
                 try:
                     with Image.open(file_path) as img:
-                        data = np.array(img, dtype=np.float32) # Store img/labels as float32 type array
+                        data = np.array(img, dtype=np.float32)  # Store img/labels as float32 type array
                         if file in file_names:
                             images.append(data)
                         else:
@@ -132,9 +135,10 @@ def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.n
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
 
-        return np.stack(images, axis=-1), np.expand_dims(labels[0], axis=-1) # Stack the image & labels array layerwise
+        return np.stack(images, axis=-1), np.expand_dims(labels[0], axis=-1)  # Stack the image & labels array layerwise
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
+
 
 def is_valid_bbox(bbox: Union[np.ndarray, tf.Tensor]) -> bool:
     """Checks if a given bounding box is valid
@@ -148,7 +152,10 @@ def is_valid_bbox(bbox: Union[np.ndarray, tf.Tensor]) -> bool:
 
     return True
 
-def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs: list = []) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+
+def bbox_data_generator(
+    dir: str | os.PathLike, max_boxes: int = 10, exclude_dirs: list = []
+) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """Load images and generate bounding boxes for labels from subdirectories of a specified directory
 
     Args:
@@ -184,7 +191,9 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
                 yield images, np.array(bboxes)
 
 
-def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = None) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+def data_generator(
+    dir: str | os.PathLike, file_names: Optional[list[str]] = None
+) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
     Load images and their labels from subdirectories of a specified directory.
 
@@ -193,10 +202,10 @@ def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = Non
         file_names (Optional[list[str]], optional): A list of image file names to extract. Defaults to None.
 
     Yields:
-        Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
+        Generator[Tuple[np.ndarray, np.ndarray], None, None]:
             - A numpy array of images with shape (512, 512, 16) as float32 format.
             - A numpy array of labels with shape (512, 512, 1) as float32 format.
-    
+
     Raises:
         FileNotFoundError: If the specified directory does not exist.
 
@@ -210,11 +219,10 @@ def data_generator(dir: str | os.PathLike, file_names: Optional[list[str]] = Non
         for entry in os.listdir(dir):
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
-                images, labels = load_image_set(sub_dir, IMAGE_FILE_NAMES)        
+                images, labels = load_image_set(sub_dir, IMAGE_FILE_NAMES)
                 yield images, labels
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
-
 
 
 """
@@ -229,16 +237,17 @@ Returns:
     as a tuple of (x-left, x-right, y-top, y-bottom).
 """
 
+
 def binary_bbox(label_mask):
     assert label_mask.ndim == 2, "labelMask must be a 2D numpy array"
-    
+
     labelled_arr = measure.label(label_image=label_mask, connectivity=2)
     bboxes = []
-    
+
     for region in measure.regionprops(labelled_arr):
         min_row, min_col, max_row, max_col = region.bbox
         bboxes.append((min_col, (max_col - 1), min_row, (max_row - 1)))
-    
+
     return np.array(bboxes)
 
 
@@ -272,48 +281,48 @@ def get_single_bounding_box(mask: np.ndarray):
 
     return np.array([x_left, x_right, y_top, y_bottom])
 
-def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "iou") -> float:
-    """ Wrapper function for iou_metrics function, verifying bounding boxes and metric.
 
-    IoU is the basic metric used to find amount of overlap between bounding boxes. 
-    
-    GIoU improves IoU by considering distance between boxes when they don't overlap. 
-        
+def compare_bbox(true_bbox: tuple | list, pred_bbox: tuple | list, metric: str = "iou") -> float:
+    """Wrapper function for iou_metrics function, verifying bounding boxes and metric.
+
+    IoU is the basic metric used to find amount of overlap between bounding boxes.
+
+    GIoU improves IoU by considering distance between boxes when they don't overlap.
+
     CIoU is DIoU except adding the ability to consider the aspect ratio of the bounding boxes.
-    
+
     Args:
         true_bbox:
-            2d-list|2d-np nparray for the true bounding box, 
+            2d-list|2d-np nparray for the true bounding box,
             with format [[t_left, t_top, t_right, t_bot], [...], ...]
-        pred_bbox: 
-            2d-list|2d-np nparray for the predicted bounding box. 
+        pred_bbox:
+            2d-list|2d-np nparray for the predicted bounding box.
             with format [[p_left, p_top, p_right, p_bot], [...], ...]
         metrics: one of ["iou", "giou", "ciou"]:
-        
+
     Returns:
-        float: The similarity loss between true and pred bounding box. 
-            iou_loss will return a value between 0 and 1. 
+        float: The similarity loss between true and pred bounding box.
+            iou_loss will return a value between 0 and 1.
             other losses will return a value between 0 and 2.
             The lower the better.
-       
+
     """
     # check for correct type
     if metric not in ["iou", "giou", "ciou"]:
-        raise ValueError(
-        'Unknown type {}, not iou/diou'.format(metric))
-    
+        raise ValueError("Unknown type {}, not iou/diou".format(metric))
+
     # # Convert inputs to NumPy arrays if they are not already
     # true_bbox = np.array(true_bbox) if not isinstance(true_bbox, np.ndarray) else true_bbox
     # pred_bbox = np.array(pred_bbox) if not isinstance(pred_bbox, np.ndarray) else pred_bbox
-    
+
     # # Ensure inputs are 2D arrays
     # if true_bbox.ndim != 2 or pred_bbox.ndim != 2:
     #     raise ValueError("Bounding boxes must be 2D arrays.")
-    
+
     # # Ensure each bounding box has four coordinates (x_min, y_min, x_max, y_max)
     # if true_bbox.shape[1] != 4 or pred_bbox.shape[1] != 4:
     #     raise ValueError("Each bounding box must have exactly four coordinates.")
-    
+
     # # Validate each bounding box
     # for bbox in true_bbox:
     #     if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
@@ -321,28 +330,36 @@ def compare_bbox(true_bbox: tuple|list, pred_bbox: tuple|list, metric: str = "io
     # for bbox in pred_bbox:
     #     if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
     #         raise ValueError(f"Invalid bounding box: {bbox} in pred_bbox")
-    
+
     # # Ensure bounding boxes contain valid numeric types (int or float)
     # if not (np.issubdtype(true_bbox.dtype, np.integer) or np.issubdtype(true_bbox.dtype, np.floating)):
     #     raise TypeError("true_bbox must contain int or float values.")
     # if not (np.issubdtype(pred_bbox.dtype, np.integer) or np.issubdtype(pred_bbox.dtype, np.floating)):
     #     raise TypeError("pred_bbox must contain int or float values.")
-    
+
     # get the loss function values
     iou_value = None
-    if metric == 'iou':
+    if metric == "iou":
         loss = losses.IoULoss("XYXY", "linear")
         iou_value = loss(true_bbox, pred_bbox)
-    if metric == 'giou': 
+    if metric == "giou":
         loss = losses.GIoULoss("XYXY")
         iou_value = loss(true_bbox, pred_bbox)
-    if metric == 'ciou':
+    if metric == "ciou":
         loss = losses.CIoULoss("XYXY")
         iou_value = loss(true_bbox, pred_bbox)
-        
+
     return iou_value
 
-def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_file: Optional[str]=None, images: Optional[list]=None, pixels: Optional[int]= 255) -> np.ndarray:
+
+def varon_iteration(
+    dir_path: str,
+    c_threshold: float,
+    num_bands: int,
+    output_file: Optional[str] = None,
+    images: Optional[list] = None,
+    pixels: Optional[int] = 255,
+) -> np.ndarray:
     """
     consumes a path to a directory (easy training), and name of the output file. For each
     folder of images, it computes the varon ratio between each image creating
@@ -368,7 +385,7 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
 
     for image_folder in folders_to_process:
         folder_path = os.path.join(dir_path, image_folder)
-        
+
         if not os.path.isdir(folder_path):
             continue
 
@@ -376,29 +393,28 @@ def varon_iteration(dir_path: str, c_threshold: float, num_bands: int, output_fi
         image_prime_sums = []
         for i in range(num_bands):
             img_path = os.path.join(folder_path, IMAGE_FILE_NAMES[i])
-            
+
             with Image.open(img_path) as img_data:
                 img_array = np.array(img_data)
                 img_subset = img_array[:pixels, :pixels]
                 hyperspectral_images.append(img_subset)
                 image_prime_sums.append(np.sum(remove_outliers_with_zscore(img_subset, c_threshold)))
-            
 
-        current_matrix = np.zeros((num_bands, num_bands)) 
+        current_matrix = np.zeros((num_bands, num_bands))
 
         for k in range(num_bands):
             S = hyperspectral_images[k]
             S_prime_sum = image_prime_sums[k]
-            for j in range(k, num_bands): 
+            for j in range(k, num_bands):
                 # I didn't do anything with the fact that S should be signal band and B should be background band
                 B = hyperspectral_images[j]
 
                 # calculate c: note! S/B_prime are 1D arrays
                 B_prime_sum = image_prime_sums[j]
-                if(B_prime_sum != 0):
-                   c = S_prime_sum/B_prime_sum
+                if B_prime_sum != 0:
+                    c = S_prime_sum / B_prime_sum
                 else:
-                   c = 1
+                    c = 1
 
                 mean, _ = varonRatio(S, B, c)
                 current_matrix[k, j] = mean
@@ -426,7 +442,6 @@ def get_global_normalization_mean_std(data):
 
     std_global[std_global == 0] = 1.0
     return mean_global, std_global
-
 
 
 def resize_data_and_labels(x, y, reshape_size):
