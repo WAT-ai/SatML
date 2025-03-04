@@ -299,7 +299,7 @@ def createTestMatrix():
 
         np.save("tests/varon_correct.npy", data)
 
-def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_bands: int, images: Optional[np.ndarray]=None, pixels: Optional[int]= 255):
+def varon_iteration(dir_path: str, output_file: str, c_threshold: float, num_bands: int, images: Optional[np.ndarray]=None, pixels: Optional[int]= 512):
     """
     consumes a path to a directory (easy training), and name of the output file. For each
     folder of images, it computes the varon ratio between each image creating
@@ -391,14 +391,14 @@ Find mean and standard deviation for each of the 16 channels of image dataset
 arguments: takes in tf.data.Dataset
 returns:
 """
-def find_normalization_constants(dataset):
+def find_normalization_constants(dataset, num_channels: Optional[int]= 16, pixels: Optional[int]= 255):
     """
     final array is an array of 16 tuples with mean and std dev for each of the channels
     """
     final_array = [] 
     
     # Loop through each of the 16 channels
-    for i in range(16):
+    for i in range(num_channels):
         channel_array = []  # Initialize a zero matrix for channel summation
 
         for images, _ in dataset:
@@ -412,6 +412,6 @@ def find_normalization_constants(dataset):
         mean = tf.reduce_mean(all_pixels)
         stddev = tf.math.reduce_std(all_pixels)
 
-        final_array.append((mean, stddev))
+        final_array.append((mean.numpy(), stddev.numpy()))
 
     return final_array

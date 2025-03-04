@@ -1,10 +1,11 @@
 import unittest
 import numpy as np
 from pathlib import Path
-
+import tensorflow as tf
 from src import image_utils
 
 class TestImageUtils(unittest.TestCase):
+    
     def setUp(self):
         self.files_to_remove = []
         return super().setUp()
@@ -42,6 +43,7 @@ class TestImageUtils(unittest.TestCase):
     Here's the link to the google sheet used to create the correct_matrix:
     https://docs.google.com/spreadsheets/d/1ibQIVitjaxNGXof7cjM9m5XKFG8H756YdaG6zqICUpI/edit?usp=sharing
     """
+    
     def test_varon_iteration_easy(self):
         images = ["ang20190927t184620_r7541_c401_w151_h151",
                   "ang20190927t153023_r7101_c126_w151_h151",
@@ -53,6 +55,23 @@ class TestImageUtils(unittest.TestCase):
         correct_matrix = np.load("tests/varon_correct.npy")
         self.files_to_remove.append('tests/varon_correct.npy') 
         np.testing.assert_almost_equal(correct_matrix, compute_matrix, decimal=6) 
+    
+
+    def test_find_normalization_constants(self):
+    # Create a dummy dataset with 16 channels
+        images = ["ang20190927t184620_r7541_c401_w151_h151",
+                  "ang20190927t153023_r7101_c126_w151_h151",
+                  "ang20191019t175004_r8192_c256_w512_h512"]
+        
+        dataset = tf.data.Dataset.from_tensor_slices(images)
+        dataset = dataset.map(lambda x: tf.io.read_file(x))
+        computed_constants = image_utils.find_normalization_constants(dataset, 3, 5)
+        
+        # https://docs.google.com/spreadsheets/d/1lbjrDmN354iAQZzkFJaPDEINOGFKBeBwbdE54z4O34I/edit?usp=sharing
+        correct_contstants = np.array([(19.8782136, 14.91234357), 
+                                       (22.53969195, 17.19600461), 
+                                       (24.9107772, 18.98169895)])
+        np.testing.assert_almost_equal(correct_contstants, computed_constants, decimal=6) 
     
     
     def test_binary_bbox(self):
