@@ -13,9 +13,7 @@ attrs_files = [f for f in os.listdir("logs") if f.endswith("_attrs.yaml")]
 attrs_files.sort()
 bbox_model = BBoxModel.load(f"logs/{attrs_files[-1]}")
 
-dataset = create_bbox_dataset(
-    "./data/raw_data/STARCOP_test", bbox_model.max_boxes
-).take(50)
+dataset = create_bbox_dataset("./data/raw_data/STARCOP_test", bbox_model.max_boxes).take(50)
 
 dataset = bbox_model.preprocess_dataset(dataset)
 test_images = [x for x, _ in dataset]
@@ -27,9 +25,7 @@ print("test_images:", len(test_images))
 print("y_true:", len(y_true))
 
 
-def draw_bounding_boxes(
-    image: np.ndarray, ground_truth_boxes: list, predicted_boxes: list
-):
+def draw_bounding_boxes(image: np.ndarray, ground_truth_boxes: list, predicted_boxes: list):
     """
     Draws ground truth and predicted bounding boxes on an image.
 
@@ -89,9 +85,7 @@ def draw_bounding_boxes(
 
 
 def visualize(slice_idx):
-    fig = draw_bounding_boxes(
-        test_images[slice_idx][..., 0], y_true[slice_idx], predictions[slice_idx]
-    )
+    fig = draw_bounding_boxes(test_images[slice_idx][..., 0], y_true[slice_idx], predictions[slice_idx])
 
     return fig
 

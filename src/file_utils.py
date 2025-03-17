@@ -62,9 +62,9 @@ def get_available_datasets(raw_data_dir: str | os.PathLike) -> list[str]:
     if not check_dir_exist(raw_data_dir):
         return available_datasets
 
-    for sub_dir in Path(raw_data_dir).glob('*'):
-        if sub_dir.is_dir() and sub_dir.stem.startswith('STARCOP_'):
-            dataset_name = sub_dir.stem[len('STARCOP_'):]
+    for sub_dir in Path(raw_data_dir).glob("*"):
+        if sub_dir.is_dir() and sub_dir.stem.startswith("STARCOP_"):
+            dataset_name = sub_dir.stem[len("STARCOP_") :]
             logging.debug(f"Discovered dataset {dataset_name}")
             available_datasets.append(dataset_name)
 
@@ -81,7 +81,7 @@ def get_dataset_path(raw_data_dir: str | os.PathLike, dataset_name: str) -> str:
     Returns:
         str: path to the dataest directory
     """
-    return Path(raw_data_dir).joinpath(f'STARCOP_{dataset_name}').as_posix()
+    return Path(raw_data_dir).joinpath(f"STARCOP_{dataset_name}").as_posix()
 
 
 def read_dataset_csv(
@@ -104,11 +104,10 @@ def read_dataset_csv(
     """
     if not csv_file_path:
         if not (raw_data_dir and dataset_name):
-            raise ValueError(
-                "dataset_name and raw_data_dir must be specified if csv_file_path is not given")
+            raise ValueError("dataset_name and raw_data_dir must be specified if csv_file_path is not given")
 
         dataset_path = get_dataset_path(raw_data_dir, dataset_name)
-        csv_file_path = Path(dataset_path).joinpath(f'{dataset_name}.csv')
+        csv_file_path = Path(dataset_path).joinpath(f"{dataset_name}.csv")
 
     if check_file_exist(csv_file_path):
         return pd.read_csv(csv_file_path)
