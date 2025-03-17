@@ -32,7 +32,7 @@ class SegmentPipeline:
         return cropped_dataset
 
     def generate_cropped_dataset(
-        self, original_dataset: tf.data.Dataset, bounding_box_function: callable
+        self, original_dataset: tf.data.Dataset, bounding_box_function: callable, CNN: bool = True
     ) -> tf.data.Dataset:
         """
         Generate a new dataset by cropping each image into multiple images based on bounding boxes.
@@ -79,8 +79,29 @@ class SegmentPipeline:
 
         # Apply the cropping function to each element and flatten the dataset
         cropped_dataset = original_dataset.flat_map(process_images)
-
-        return cropped_dataset
+        
+        # Reshape dataset and reformat
+        if CNN:
+            # Reformat dataset into dictionary
+            def reformat_to_dict(feature, label):
+                
+                feature.set_shape([256, 256, 16])
+                label.set_shape([256, 256, 1])
+                
+                return {
+                'image': feature,
+                'segmentation_mask': label    
+                }
+        else:
+            # Don't reformat dataset into dictionary
+            def reformat_to_dict(feature, label):
+                
+                feature.set_shape([256, 256, 16])
+                label.set_shape([256, 256, 1])
+                
+                return feature, label
+    
+        return cropped_dataset.map(reformat_to_dict)
 
 
 if __name__ == "__main__":
