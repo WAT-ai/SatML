@@ -143,47 +143,111 @@ def modified_mean_squared_error(y_true, y_pred):
 
 
 def iou_loss(y_true, y_pred):
-    """Computes IoU loss for bounding boxes in (x-left, x-right, y-top, y-bottom) format."""
-    # Reshape from (batch, n, 4) to (batch * n, 4)
-    y_true = tf.reshape(y_true, [-1, 4])
-    y_pred = tf.reshape(y_pred, [-1, 4])
+    # IoU Loss
+    y_true_reshaped = tf.reshape(y_true, [-1, 4])
+    y_pred_reshaped = tf.reshape(y_pred, [-1, 4])
 
-    # Check if the ground truth and predicted boxes are all negative (invalid bounding box)
-    all_negative_true = tf.reduce_all(y_true < 0, axis=1)
-    all_negative_pred = tf.reduce_all(y_pred < 0, axis=1)
+    valid_mask = tf.reduce_any(y_true_reshaped > 0, axis=-1, keepdims=True)
+    x1_true, x2_true, y1_true, y2_true = tf.split(y_true_reshaped, 4, axis=-1)
+    x1_pred, x2_pred, y1_pred, y2_pred = tf.split(y_pred_reshaped, 4, axis=-1)
 
-    # Mask where both boxes are negative
-    valid_boxes_mask = tf.logical_and(all_negative_true, all_negative_pred)
+    x1_int = tf.maximum(x1_true, x1_pred)
+    x2_int = tf.minimum(x2_true, x2_pred)
+    y1_int = tf.maximum(y1_true, y1_pred)
+    y2_int = tf.minimum(y2_true, y2_pred)
 
-    # Extract min/max coordinates for valid boxes
-    x_min_pred, x_max_pred = y_pred[:, 0], y_pred[:, 1]
-    y_min_pred, y_max_pred = y_pred[:, 2], y_pred[:, 3]
+    inter_area = tf.maximum(0.0, x2_int - x1_int) * tf.maximum(0.0, y2_int - y1_int)
+    area_true = tf.maximum(0.0, (x2_true - x1_true) * (y2_true - y1_true))
+    area_pred = tf.maximum(0.0, (x2_pred - x1_pred) * (y2_pred - y1_pred))
+    union_area = area_true + area_pred - inter_area + 1e-6
 
-    x_min_true, x_max_true = y_true[:, 0], y_true[:, 1]
-    y_min_true, y_max_true = y_true[:, 2], y_true[:, 3]
+    iou = inter_area / union_area
+    # valid_mask = tf.cast(valid_mask, tf.bool)
+    iou_loss = (1 - iou) * tf.cast(valid_mask, tf.float32)
 
-    # Compute intersection for valid boxes
-    x_min_inter = tf.maximum(x_min_pred, x_min_true)
-    y_min_inter = tf.maximum(y_min_pred, y_min_true)
-    x_max_inter = tf.minimum(x_max_pred, x_max_true)
-    y_max_inter = tf.minimum(y_max_pred, y_max_true)
+    # Smooth L1 Loss for coordinate regression
+    smooth_l1 = tf.losses.huber(y_true_reshaped, y_pred_reshaped)
 
-    inter_width = tf.maximum(0.0, x_max_inter - x_min_inter)
-    inter_height = tf.maximum(0.0, y_max_inter - y_min_inter)
-    intersection_area = inter_width * inter_height
+    # Weighted Combination
+    total_loss = tf.reduce_mean(iou_loss) + 0.5 * smooth_l1
+    return total_loss
 
-    # Compute union for valid boxes
-    pred_area = (x_max_pred - x_min_pred) * (y_max_pred - y_min_pred)
-    true_area = (x_max_true - x_min_true) * (y_max_true - y_min_true)
-    union_area = pred_area + true_area - intersection_area
 
-    # Compute IoU
-    iou = intersection_area / (union_area + 1e-7)  # Small epsilon to prevent division by zero
+def ciou_loss(y_true, y_pred, lambda_reg=10, img_size=512):
+    # Extract coordinates
+    x_left_true, x_right_true, y_top_true, y_bottom_true = tf.split(y_true * img_size, 4, axis=-1)
+    x_left_pred, x_right_pred, y_top_pred, y_bottom_pred = tf.split(y_pred * img_size, 4, axis=-1)
 
-    # Compute IoU loss
-    iou_loss = 1 - iou
+    # Validate boxes
+    valid_pred_mask = (x_left_pred < x_right_pred) & (y_top_pred < y_bottom_pred)
+    valid_true_mask = (x_left_true < x_right_true) & (y_top_true < y_bottom_true)
+    valid_mask = tf.cast(valid_pred_mask & valid_true_mask, tf.float32)
 
-    # Set IoU loss to 0 for invalid boxes, keep normal loss for valid boxes
-    final_loss = tf.where(valid_boxes_mask, 0.0, iou_loss)
+    # Penalty for invalid predicted boxes
+    invalid_penalty = tf.cast(~valid_pred_mask, tf.float32) * 1.0  # Penalty factor
 
-    return tf.reduce_mean(final_loss)  # Reduce over batch
+    # Ensure coordinates are valid
+    x_left_pred = tf.minimum(x_left_pred, x_right_pred)
+    y_top_pred = tf.minimum(y_top_pred, y_bottom_pred)
+    x_left_true = tf.minimum(x_left_true, x_right_true)
+    y_top_true = tf.minimum(y_top_true, y_bottom_true)
+
+    # Areas
+    area_true = tf.maximum(0.0, (x_right_true - x_left_true) * (y_bottom_true - y_top_true))
+    area_pred = tf.maximum(0.0, (x_right_pred - x_left_pred) * (y_bottom_pred - y_top_pred))
+
+    # Intersection
+    x_left_inter = tf.maximum(x_left_true, x_left_pred)
+    x_right_inter = tf.minimum(x_right_true, x_right_pred)
+    y_top_inter = tf.maximum(y_top_true, y_top_pred)
+    y_bottom_inter = tf.minimum(y_bottom_true, y_bottom_pred)
+
+    inter_width = tf.maximum(0.0, x_right_inter - x_left_inter)
+    inter_height = tf.maximum(0.0, y_bottom_inter - y_top_inter)
+    inter_area = inter_width * inter_height
+
+    # Union
+    union_area = area_true + area_pred - inter_area + 1e-7
+    iou = inter_area / union_area
+
+    # Centers and distances
+    x_center_true = (x_left_true + x_right_true) / 2.0
+    y_center_true = (y_top_true + y_bottom_true) / 2.0
+    x_center_pred = (x_left_pred + x_right_pred) / 2.0
+    y_center_pred = (y_top_pred + y_bottom_pred) / 2.0
+
+    center_distance = (x_center_pred - x_center_true) ** 2 + (y_center_pred - y_center_true) ** 2
+
+    # Enclosing box
+    x_left_enclose = tf.minimum(x_left_true, x_left_pred)
+    x_right_enclose = tf.maximum(x_right_true, x_right_pred)
+    y_top_enclose = tf.minimum(y_top_true, y_top_pred)
+    y_bottom_enclose = tf.maximum(y_bottom_true, y_bottom_pred)
+
+    enclose_diagonal = (x_right_enclose - x_left_enclose) ** 2 + (y_bottom_enclose - y_top_enclose) ** 2 + 1e-7
+
+    # Aspect ratio penalty
+    w_true = tf.maximum(1e-7, x_right_true - x_left_true)
+    h_true = tf.maximum(1e-7, y_bottom_true - y_top_true)
+    w_pred = tf.maximum(1e-7, x_right_pred - x_left_pred)
+    h_pred = tf.maximum(1e-7, y_bottom_pred - y_top_pred)
+
+    v = (4 / (3.14159265**2)) * tf.square(tf.atan(w_true / h_true) - tf.atan(w_pred / h_pred))
+    alpha = v / (1 - iou + v + 1e-7)
+
+    # CIoU calculation
+    ciou = iou - (center_distance / enclose_diagonal) - alpha * v
+
+    # Apply valid mask and penalize invalid predictions
+    ciou = ciou * valid_mask - invalid_penalty
+
+    # CIoU loss
+    ciou_loss_value = 1 - ciou
+
+    # Regularization term (MSE for bounding box coordinates)
+    mse_loss = tf.reduce_mean(tf.square(y_true - y_pred))
+
+    # Combined loss
+    loss = tf.reduce_mean(ciou_loss_value) + lambda_reg * mse_loss
+
+    return loss
