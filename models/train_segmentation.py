@@ -7,6 +7,7 @@ from models.cnn_model_factory import get_no_downsample_cnn_model
 from src.image_utils import get_global_normalization_mean_std, resize_data_and_labels
 from src.data_loader import create_dataset
 
+
 # Generator function for training data
 def train_generator(norm_mean, norm_std, train_x, train_y):
     def generator():
@@ -108,8 +109,8 @@ if __name__ == "__main__":
         train_x = np.load(f"{args.data_path}/train_x.npy")
         train_y = np.load(f"{args.data_path}/train_y.npy")
         test_x = np.load(f"{args.data_path}/test_x.npy")
-        test_y = np.load(f"{args.data_path}/test_y.npy") 
-        
+        test_y = np.load(f"{args.data_path}/test_y.npy")
+
         train_no_downsample_cnn(
             train_x,
             train_y,
@@ -133,8 +134,8 @@ if __name__ == "__main__":
 
         # Split the dataset into training and testing subsets
         train_dataset = dataset.take(train_size)
-        test_dataset = dataset.skip(train_size) 
-        
+        test_dataset = dataset.skip(train_size)
+
         train_unet(
             train_dataset,
             test_dataset,

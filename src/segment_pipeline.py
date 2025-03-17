@@ -7,9 +7,7 @@ class SegmentPipeline:
     def __init__(self, channels_of_interest, num_classes, target_shape):
         self.channels_of_interest = channels_of_interest
         self.num_classes = num_classes
-        self.num_input_channels = (
-            len(channels_of_interest) if channels_of_interest is not None else 16
-        )
+        self.num_input_channels = len(channels_of_interest) if channels_of_interest is not None else 16
         self.target_shape = target_shape
 
     def create_dataset(self, dir: str) -> tf.data.Dataset:
@@ -20,12 +18,8 @@ class SegmentPipeline:
         Each image channel corressponds to a specific hyperspectral frequency image.
         """
         output_sig = (
-            tf.TensorSpec(
-                shape=(512, 512, self.num_input_channels), dtype=tf.float32
-            ),  # Images
-            tf.TensorSpec(
-                shape=(512, 512, self.num_classes), dtype=tf.float32
-            ),  # Labels
+            tf.TensorSpec(shape=(512, 512, self.num_input_channels), dtype=tf.float32),  # Images
+            tf.TensorSpec(shape=(512, 512, self.num_classes), dtype=tf.float32),  # Labels
         )
 
         file_dataset = tf.data.Dataset.from_generator(
@@ -33,9 +27,7 @@ class SegmentPipeline:
             output_signature=output_sig,
         )
 
-        cropped_dataset = self.generate_cropped_dataset(
-            file_dataset, get_single_bounding_box
-        )
+        cropped_dataset = self.generate_cropped_dataset(file_dataset, get_single_bounding_box)
 
         return cropped_dataset
 
@@ -67,20 +59,12 @@ class SegmentPipeline:
                 if x_min == x_max or y_min == y_max:
                     continue
 
-                cropped_image = tf.image.crop_to_bounding_box(
-                    image, y_min, x_min, y_max - y_min, x_max - x_min
-                )
-                cropped_label = tf.image.crop_to_bounding_box(
-                    label, y_min, x_min, y_max - y_min, x_max - x_min
-                )
+                cropped_image = tf.image.crop_to_bounding_box(image, y_min, x_min, y_max - y_min, x_max - x_min)
+                cropped_label = tf.image.crop_to_bounding_box(label, y_min, x_min, y_max - y_min, x_max - x_min)
 
                 # pad and resize the cropped image and label
-                cropped_image = tf.image.resize_with_pad(
-                    cropped_image, self.target_shape[0], self.target_shape[1]
-                )
-                cropped_label = tf.image.resize_with_pad(
-                    cropped_label, self.target_shape[0], self.target_shape[1]
-                )
+                cropped_image = tf.image.resize_with_pad(cropped_image, self.target_shape[0], self.target_shape[1])
+                cropped_label = tf.image.resize_with_pad(cropped_label, self.target_shape[0], self.target_shape[1])
 
                 cropped_images.append(cropped_image)
                 cropped_labels.append(cropped_label)  # Adjust the label as needed
@@ -90,9 +74,7 @@ class SegmentPipeline:
 
         # Wrap the cropping function in a tf.py_function
         def process_images(image, label):
-            images, labels = tf.py_function(
-                crop_images, [image, label], [tf.float32, tf.float32]
-            )
+            images, labels = tf.py_function(crop_images, [image, label], [tf.float32, tf.float32])
             return tf.data.Dataset.from_tensor_slices((images, labels))
 
         # Apply the cropping function to each element and flatten the dataset
@@ -100,13 +82,14 @@ class SegmentPipeline:
 
         return cropped_dataset
 
+
 if __name__ == "__main__":
     pipeline = SegmentPipeline(channels_of_interest=None, num_classes=1, target_shape=(256, 256))
-    dataset = pipeline.create_dataset('./data/raw_data/STARCOP_train_easy')
+    dataset = pipeline.create_dataset("./data/raw_data/STARCOP_train_easy")
 
     for images, labels in dataset.take(1):
-        print(f'Images shape: {images.shape}')
-        print(f'Labels shape: {labels.shape}')
-        print(f'Images dtype: {images.dtype}')
-        print(f'Labels dtype: {labels.dtype}')
+        print(f"Images shape: {images.shape}")
+        print(f"Labels shape: {labels.shape}")
+        print(f"Images dtype: {images.dtype}")
+        print(f"Labels dtype: {labels.dtype}")
         break
