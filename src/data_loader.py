@@ -13,7 +13,8 @@ def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = []) -> tf.d
     """
     output_sig = (
         tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
-        tf.TensorSpec(shape=(max_boxes, 4), dtype=tf.float32)   # bounding box labels
+        tf.TensorSpec(shape=(max_boxes, 4), dtype=tf.float32),  # bounding box labels
+        tf.TensorSpec(shape=(), dtype=tf.string)                # Image directory path
     )
 
     return tf.data.Dataset.from_generator(
@@ -23,10 +24,11 @@ def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = []) -> tf.d
 
 def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
     """
-    Creates a TensorFlow dataset with images and labels grouped in dictionary format as given:
+    Creates a TensorFlow dataset with images, labels, and the image directory path grouped in dictionary format as given:
         - {"image": image_data, "segmentation_mask": label_data}
         - "image": (512, 512, 16) in float32.
         - "segmentation_mask": (512, 512, 1) in float32.
+        - "directory": tf.string
 
     Args:
         dir (str | os.PathLike): Path to the directory containing the data.
@@ -36,7 +38,8 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
     """
     output_sig = (
         tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
-        tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32)    # Labels
+        tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32),   # Labels
+        tf.TensorSpec(shape=(), dtype=tf.string)                # Directory
     )
 
     dataset = tf.data.Dataset.from_generator(
@@ -46,7 +49,7 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
 
     # Transform the dataset to key-val format: {"image": image, "segmentation_mask": label}
     dataset = dataset.map(
-        lambda img, lbl: {"image": img, "segmentation_mask": lbl},
+        lambda img, lbl, path: {"image": img, "segmentation_mask": lbl, "directory_path": path},
         num_parallel_calls=tf.data.AUTOTUNE
     )
 

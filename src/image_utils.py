@@ -131,8 +131,8 @@ def load_image_set(dir: str | os.PathLike, file_names: List[str]) -> Tuple[np.nd
                             labels.append(data)
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
-
-        return np.stack(images, axis=-1), np.expand_dims(data, axis=-1) # Stack the image & labels array layerwise
+        # bug fix: np.expand_dims(labels[0], axis=-1) instead of np.expand_dims(data, axis=-1) because data is the last file read, not the label file
+        return np.stack(images, axis=-1), np.expand_dims(labels[0], axis=-1) # Stack the image & labels array layerwise
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
 
@@ -160,6 +160,7 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
         Generator[Tuple[np.ndarray, np.ndarray], None, None]:
             - A numpy array of images with shape (512, 512, 16)
             - A numpy array of bounding box labels with shape (max_boxes, 4)
+            - Path to the sub_dir directory containing 16 images
     """
     file_names = [
         "TOA_AVIRIS_460nm.tif",
@@ -198,12 +199,12 @@ def bbox_data_generator(dir: str | os.PathLike, max_boxes: int=10, exclude_dirs:
                 if len(bboxes) < max_boxes:
                     bboxes.extend([[-1, -1, -1, -1]] * (max_boxes - len(bboxes)))
 
-                yield images, np.array(bboxes)
+                yield images, np.array(bboxes), sub_dir
 
 
 def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
-    Load images and their labels from subdirectories of a specified directory.
+    Load images, their labels, and the directory path from subdirectories of a specified directory.
 
     Args:
         dir (str | os.PathLike): Path to the base directory containing image subdirectories.
@@ -212,6 +213,7 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
         Generator[Tuple[np.ndarray, np.ndarray], None, None]: 
             - A numpy array of images with shape (512, 512, 16) as float32 format.
             - A numpy array of labels with shape (512, 512, 1) as float32 format.
+            - Path to the sub_dir directory containing 16 images.
     
     Raises:
         FileNotFoundError: If the specified directory does not exist.
@@ -245,7 +247,7 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
                 images, labels = load_image_set(sub_dir, file_names)        
-                yield images, labels
+                yield images, labels, sub_dir
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
 
