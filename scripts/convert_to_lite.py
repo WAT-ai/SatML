@@ -1,6 +1,5 @@
 import tensorflow as tf
 
-from tensorflow.keras.models import load_model
 from src.losses import iou_loss, modified_mean_squared_error
 
 
@@ -21,7 +20,7 @@ if __name__ == "__main__":
 
         # Saving the model
         with open('model.tflite', 'wb') as f:
-        f.write(tflite_model)
+            f.write(tflite_model)
         print("Model successfully converted to TensorFlow Lite.")
     except Exception as e:
         print("Error during conversion:", e)
