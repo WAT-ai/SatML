@@ -168,6 +168,7 @@ def bbox_data_generator(
         Generator[Tuple[np.ndarray, np.ndarray], None, None]:
             - A numpy array of images with shape (512, 512, 16)
             - A numpy array of bounding box labels with shape (max_boxes, 4)
+            - Path to the sub_dir directory containing 16 images
     """
 
     if os.path.isdir(dir):
@@ -193,23 +194,21 @@ def bbox_data_generator(
                 if len(bboxes) < max_boxes:
                     bboxes.extend([[0, 0, 0, 0]] * (max_boxes - len(bboxes)))
 
-                yield images, np.array(bboxes, dtype=np.float32)
+                yield images, np.array(bboxes, dtype=np.float32), sub_dir
 
 
-def data_generator(
-    dir: str | os.PathLike, file_names: Optional[list[str]] = None
-) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray, str], None, None]:
     """
-    Load images and their labels from subdirectories of a specified directory.
+    Load images, their labels, and the directory path from subdirectories of a specified directory.
 
     Args:
         dir (str | os.PathLike): Path to the base directory containing image subdirectories.
-        file_names (Optional[list[str]], optional): A list of image file names to extract. Defaults to None.
 
     Yields:
-        Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+        Generator[Tuple[np.ndarray, np.ndarray, str], None, None]:
             - A numpy array of images with shape (512, 512, 16) as float32 format.
             - A numpy array of labels with shape (512, 512, 1) as float32 format.
+            - Path to the sub_dir directory containing 16 images.
 
     Raises:
         FileNotFoundError: If the specified directory does not exist.
@@ -225,7 +224,7 @@ def data_generator(
             sub_dir = os.path.join(dir, entry)
             if os.path.isdir(sub_dir):
                 images, labels = load_image_set(sub_dir, IMAGE_FILE_NAMES)
-                yield images, labels
+                yield images, labels, sub_dir
     else:
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
 
