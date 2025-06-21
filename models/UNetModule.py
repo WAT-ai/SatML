@@ -3,6 +3,8 @@ import tensorflow as tf
 from tensorflow import keras
 from matplotlib import pyplot as plt
 
+from src.losses import dice_loss
+
 class Augment(tf.keras.layers.Layer):
   def __init__(self, flip=True, rotate=True, crop=False, seed=42):
     super().__init__()
@@ -154,25 +156,7 @@ class UNet():
         x = last(x)
 
         return tf.keras.Model(inputs=inputs, outputs=x)
-    
-    def dice_loss(self, y_true, y_pred):
-        # y_true shape [batch_size,128,128,1] dtype=float32
-        # y_pred shape [batch_size,128,128,num_classes] dtype=float32
-        # y_pred array of logits
-        smooth = tf.constant(1e-17)
 
-        y_true = tf.cast(y_true, tf.int32)
-        y_true = tf.one_hot(y_true, depth=2, axis=-1)
-        y_true = tf.squeeze(y_true)
-        y_pred = tf.math.softmax(y_pred, axis=-1)
-
-        numerator = tf.reduce_sum(y_true * y_pred)
-        denominator = tf.reduce_sum(y_true + y_pred)
-        # numerator = tf.cast(numerator, tf.float32)
-        # denominator=tf.cast(denominator, tf.float32)
-        loss = 1.0 - 2.0 * (numerator + smooth) / (denominator + smooth)
-
-        return loss
 
     def iou_metric(self, y_true, y_pred):   
         # Apply softmax to logits
@@ -226,7 +210,7 @@ class UNet():
     def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=1, lr=0.001):
        self.model.compile(optimizer='adam',
                         #   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                          loss=self.dice_loss,
+                          loss=dice_loss,
                           metrics=[
                                    'accuracy',
                                    self.iou_metric,
