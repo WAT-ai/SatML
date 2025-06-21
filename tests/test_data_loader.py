@@ -64,7 +64,7 @@ class TestCreateDataset(unittest.TestCase):
             self.assertEqual(bboxes.shape, (max_boxes, 4), "BBoxes shape does not match expected dimensions")
             self.assertIsInstance(directory, str, "Directory should be a string")
             self.assertEqual(images.dtype, tf.float32, "Image data should be of type tf.float32")
-            self.assertEqual(bboxes.dtype, tf.int64, "BBoxes data should be of type tf.float32")
+            self.assertEqual(bboxes.dtype, tf.float32, "BBoxes data should be of type tf.float32")
 
             return
 

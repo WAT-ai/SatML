@@ -15,10 +15,7 @@ def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = [], force_s
     output_sig = (
         tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
         tf.TensorSpec(shape=(max_boxes, 4), dtype=tf.float32),  # bounding box labels
-<<<<<<< HEAD
         tf.TensorSpec(shape=(), dtype=tf.string)                # Image directory path
-=======
->>>>>>> main
     )
 
     return tf.data.Dataset.from_generator(
