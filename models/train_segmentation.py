@@ -4,8 +4,10 @@ import tensorflow as tf
 from datetime import datetime
 from models.UNetModule import UNet
 from models.cnn_model_factory import get_no_downsample_cnn_model
-from src.image_utils import get_global_normalization_mean_std, resize_data_and_labels
+from src.image_utils import get_global_normalization_mean_std, resize_data_and_labels, get_single_bounding_box
 from src.data_loader import create_dataset
+from src.segment_pipeline import SegmentPipeline
+
 
 # Generator function for training data
 def train_generator(norm_mean, norm_std, train_x, train_y):
@@ -79,7 +81,22 @@ def train_no_downsample_cnn(
             tf.TensorSpec(shape=resize_shape + (1,), dtype=tf.float32),  # Labels
         ),
     )
-
+    
+    # Set up pipeline and generate cropped dataset
+    pipeline = SegmentPipeline(
+        channels_of_interest= None,
+        num_classes= 1,
+        target_shape= (256, 256)
+    )
+    
+    train_dataset = pipeline.generate_cropped_dataset(
+            train_dataset, get_single_bounding_box, False
+    )
+    
+    test_dataset = pipeline.generate_cropped_dataset(
+            test_dataset, get_single_bounding_box, False
+    )
+    
     batch_size = 32
     train_dataset = train_dataset.shuffle(buffer_size=1000).batch(batch_size).prefetch(tf.data.AUTOTUNE).cache()
     test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE).cache()
@@ -94,22 +111,25 @@ def train_no_downsample_cnn(
 if __name__ == "__main__":
     TIMESTAMP = datetime.now().strftime("%Y%m%d%H%M%S")
     parser = argparse.ArgumentParser()
-    parser.add_argument("-model_type", "--model_type", type=str, default="nds_cnn")
-    parser.add_argument("-data_path", "--data_path", type=str, default="/home/sarahmakki12/SatML/data/np_data")
-    parser.add_argument("-output_path", "--output_path", type=str, default="/home/sarahmakki12/SatML/logs")
+     # set to ./data/raw_data/STARCOP_train_easy for Unet , ./data/np_data/ for CNN
+    parser.add_argument("-model_type", "--model_type", type=str, default="unet")
+    parser.add_argument("-data_path", "--data_path", type=str, default="./data/raw_data/STARCOP_train_easy")
+    parser.add_argument("-output_path", "--output_path", type=str, default="./logs")
     parser.add_argument("-input_channels", "--input_channels", type=int, default=16)
-    parser.add_argument("-num_classes", "--num_classes", type=int, default=2)
+    # set to 2 for UNet, 1 for CNN
+    parser.add_argument("-num_classes", "--num_classes", type=int, default= 2)  
     parser.add_argument("-epochs", "--epochs", type=int, default=20)
     args = parser.parse_args()
-
+    
     # Train model
     if args.model_type == "nds_cnn":
+        
         # Load sample datasets
         train_x = np.load(f"{args.data_path}/train_x.npy")
         train_y = np.load(f"{args.data_path}/train_y.npy")
         test_x = np.load(f"{args.data_path}/test_x.npy")
-        test_y = np.load(f"{args.data_path}/test_y.npy") 
-        
+        test_y = np.load(f"{args.data_path}/test_y.npy")
+
         train_no_downsample_cnn(
             train_x,
             train_y,
@@ -120,10 +140,19 @@ if __name__ == "__main__":
             args.epochs,
             args.output_path,
         )
+        
     elif args.model_type == "unet":
+        
+        # Init pipeline
+        pipeline = SegmentPipeline(
+            channels_of_interest= None,
+            num_classes= 1,
+            target_shape= (256, 256)
+        )
+            
         # Load the complete dataset
-        dataset = create_dataset(args.data_path)
-
+        dataset = pipeline.create_dataset(args.data_path) 
+        
         # Determine the total number of samples in the dataset
         total_samples = sum(1 for _ in dataset)
 
@@ -133,8 +162,8 @@ if __name__ == "__main__":
 
         # Split the dataset into training and testing subsets
         train_dataset = dataset.take(train_size)
-        test_dataset = dataset.skip(train_size) 
-        
+        test_dataset = dataset.skip(train_size)
+
         train_unet(
             train_dataset,
             test_dataset,

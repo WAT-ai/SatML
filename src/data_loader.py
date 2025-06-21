@@ -3,7 +3,8 @@ import tensorflow as tf
 
 from src.image_utils import data_generator, bbox_data_generator, is_valid_bbox
 
-def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = []) -> tf.data.Dataset:
+
+def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = [], force_square: bool = False) -> tf.data.Dataset:
     """Creates a TensorFlow dataset with images and their bounding box labels
 
     Returns:
@@ -14,13 +15,16 @@ def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = []) -> tf.d
     output_sig = (
         tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
         tf.TensorSpec(shape=(max_boxes, 4), dtype=tf.float32),  # bounding box labels
+<<<<<<< HEAD
         tf.TensorSpec(shape=(), dtype=tf.string)                # Image directory path
+=======
+>>>>>>> main
     )
 
     return tf.data.Dataset.from_generator(
-        lambda: bbox_data_generator(data_dir, max_boxes, exclude_dirs),
-        output_signature=output_sig
+        lambda: bbox_data_generator(data_dir, max_boxes, exclude_dirs, force_square), output_signature=output_sig
     )
+
 
 def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
     """
@@ -42,10 +46,7 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
         tf.TensorSpec(shape=(), dtype=tf.string)                # Directory
     )
 
-    dataset = tf.data.Dataset.from_generator(
-        lambda: data_generator(dir),
-        output_signature=output_sig
-    )
+    dataset = tf.data.Dataset.from_generator(lambda: data_generator(dir), output_signature=output_sig)
 
     # Transform the dataset to key-val format: {"image": image, "segmentation_mask": label}
     dataset = dataset.map(
@@ -54,6 +55,7 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
     )
 
     return dataset
+
 
 def augment_image(image, bboxes, transformation):
     """
@@ -73,25 +75,35 @@ def augment_image(image, bboxes, transformation):
     if transformation == "horizontal_flip":
         image = tf.image.flip_left_right(image)
         augmented_bboxes = tf.where(
-            valid_mask,  
-            tf.stack([image_shape[1] - bboxes[:, 1] - 1, image_shape[1] - bboxes[:, 0] - 1, bboxes[:, 2], bboxes[:, 3]], axis=1),
+            valid_mask,
+            tf.stack(
+                [image_shape[1] - bboxes[:, 1] - 1, image_shape[1] - bboxes[:, 0] - 1, bboxes[:, 2], bboxes[:, 3]],
+                axis=1,
+            ),
             tf.fill(tf.shape(bboxes), -1.0),  # Fill with -1 for invalid boxes
         )
     elif transformation == "vertical_flip":
         image = tf.image.flip_up_down(image)
         augmented_bboxes = tf.where(
-            valid_mask,  
-            tf.stack([bboxes[:, 0], bboxes[:, 1], image_shape[0] - bboxes[:, 3] - 1, image_shape[0] - bboxes[:, 2] - 1], axis=1),
+            valid_mask,
+            tf.stack(
+                [bboxes[:, 0], bboxes[:, 1], image_shape[0] - bboxes[:, 3] - 1, image_shape[0] - bboxes[:, 2] - 1],
+                axis=1,
+            ),
             tf.fill(tf.shape(bboxes), -1.0),  # Fill with -1 for invalid boxes
         )
     elif transformation == "rotate":
         image = tf.image.rot90(image)  # rotate 90 degrees
         augmented_bboxes = tf.where(
-            valid_mask,  
-            tf.stack([bboxes[:, 2], bboxes[:, 3], image_shape[1] - bboxes[:, 1] - 1, image_shape[1] - bboxes[:, 0] - 1], axis=1),
+            valid_mask,
+            tf.stack(
+                [bboxes[:, 2], bboxes[:, 3], image_shape[1] - bboxes[:, 1] - 1, image_shape[1] - bboxes[:, 0] - 1],
+                axis=1,
+            ),
             tf.fill(tf.shape(bboxes), -1.0),  # Fill with -1 for invalid boxes
         )
     return image, augmented_bboxes
+
 
 def augment_dataset(image, bbox, augmentations=["none", "horizontal_flip", "vertical_flip", "rotate"]):
     """
@@ -102,12 +114,13 @@ def augment_dataset(image, bbox, augmentations=["none", "horizontal_flip", "vert
     for augmentation in augmentations:
         img, box = augment_image(image, bbox, augmentation)
         datasets.append(tf.data.Dataset.from_tensors((img, box)))
-    
+
     return tf.data.Dataset.from_tensor_slices(datasets).flat_map(lambda x: x)
+
 
 if __name__ == "__main__":
     # testing the shapes of the images and bboxes
-    dataset = create_bbox_dataset(data_dir='./data/raw_data/STARCOP_train_easy')
+    dataset = create_bbox_dataset(data_dir="./data/raw_data/STARCOP_train_easy")
 
     for image, bbox in dataset.take(3):
         print(f"original bounding box: {bbox}")
@@ -119,9 +132,8 @@ if __name__ == "__main__":
         print(f"augmented bounding box: {bbox}")
         print(f"Augmented Image Shape: {image.shape}, Augmented Bbox Shape: {bbox.shape}")
 
-    
     # Test the create_dataset function
-    train_data_path = './data/raw_data/STARCOP_train_easy'
+    train_data_path = "./data/raw_data/STARCOP_train_easy"
     dataset = create_dataset(train_data_path)
 
     # Fetch a few samples from the dataset

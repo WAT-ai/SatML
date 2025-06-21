@@ -1,9 +1,9 @@
 from tensorflow import keras
 from src.losses import weighted_bce_plus_dice
+from src.losses import dice_loss
 
-def get_no_downsample_cnn_model(
-    input_shape, output_channels, loss_weight, show_summary=False
-):
+
+def get_no_downsample_cnn_model(input_shape, output_channels, loss_weight, show_summary=False):
     """
     Simple CNN model for hyperspectral segmentation.
 
@@ -43,9 +43,7 @@ def get_no_downsample_cnn_model(
     x = se_block(x)
 
     # Output layer: 1x1 convolution to predict the binary segmentation mask
-    outputs = keras.layers.Conv2D(
-        output_channels, (1, 1), activation="sigmoid", padding="same"
-    )(x)
+    outputs = keras.layers.Conv2D(output_channels, (1, 1), activation="sigmoid", padding="same")(x)
 
     # Build and compile the model
     model = keras.Model(inputs, outputs)

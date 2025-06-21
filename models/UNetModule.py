@@ -5,33 +5,35 @@ from matplotlib import pyplot as plt
 
 from src.losses import dice_loss
 
+
 class Augment(tf.keras.layers.Layer):
-  def __init__(self, flip=True, rotate=True, crop=False, seed=42):
-    super().__init__()
-    # both use the same seed, so they'll make the same random changes.
-    self.augment_inputs = keras.Sequential()
-    self.augment_labels = keras.Sequential()
+    def __init__(self, flip=True, rotate=True, crop=False, seed=42):
+        super().__init__()
+        # both use the same seed, so they'll make the same random changes.
+        self.augment_inputs = keras.Sequential()
+        self.augment_labels = keras.Sequential()
 
-    if flip:
-        self.augment_inputs.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
-        self.augment_labels.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
+        if flip:
+            self.augment_inputs.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
+            self.augment_labels.add(keras.layers.RandomFlip(mode="horizontal_and_vertical", seed=seed))
 
-    if rotate:
-        self.augment_inputs.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
-        self.augment_labels.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
+        if rotate:
+            self.augment_inputs.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
+            self.augment_labels.add(keras.layers.RandomRotation(factor=0.1, seed=seed))
 
-    if crop:
-        self.augment_inputs.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
-        self.augment_inputs.add(keras.layers.Resizing(height=128, width=128))
-        self.augment_labels.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
-        self.augment_labels.add(keras.layers.Resizing(height=128, width=128))
+        if crop:
+            self.augment_inputs.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
+            self.augment_inputs.add(keras.layers.Resizing(height=128, width=128))
+            self.augment_labels.add(keras.layers.RandomCrop(height=64, width=64, seed=seed))
+            self.augment_labels.add(keras.layers.Resizing(height=128, width=128))
 
-  def call(self, inputs, labels):
-    inputs = self.augment_inputs(inputs)
-    labels = self.augment_labels(labels)
-    return inputs, labels
+    def call(self, inputs, labels):
+        inputs = self.augment_inputs(inputs)
+        labels = self.augment_labels(labels)
+        return inputs, labels
 
-class UNet():
+
+class UNet:
     """
     Image segmentation module that trains a U-Net model. Adapted from https://www.tensorflow.org/tutorials/images/segmentation.
     """
@@ -41,27 +43,58 @@ class UNet():
         self.num_classes = num_classes
         self.model = self.unet_model()
         # temporary values for normalization
-        self.image_mean = tf.constant([0.10667099, 13.674022, 14.076011, 14.384233,
-                                       0.11666037, 1.171873, 0.85495037, 0.4318816,
-                                       0.48891786, 0.11440071, 0.11879135, 0.12649247,
-                                       0.11130015, 0.10874157, 0.10803088, 0.10755966])
-        self.image_std = tf.constant([0.09226333, 13.874699, 15.393596, 17.116693,
-                                      0.17859535, 1.4490424, 0.83888125, 0.52144384,
-                                      0.6939981, 0.16807413, 0.1728661, 0.17979662,
-                                      0.1645278, 0.15060072, 0.138635, 0.12866527])
-        self.iou_metrics = keras.metrics.IoU(num_classes= num_classes, target_class_ids=[0])
+        self.image_mean = tf.constant(
+            [
+                0.10667099,
+                13.674022,
+                14.076011,
+                14.384233,
+                0.11666037,
+                1.171873,
+                0.85495037,
+                0.4318816,
+                0.48891786,
+                0.11440071,
+                0.11879135,
+                0.12649247,
+                0.11130015,
+                0.10874157,
+                0.10803088,
+                0.10755966,
+            ]
+        )
+        self.image_std = tf.constant(
+            [
+                0.09226333,
+                13.874699,
+                15.393596,
+                17.116693,
+                0.17859535,
+                1.4490424,
+                0.83888125,
+                0.52144384,
+                0.6939981,
+                0.16807413,
+                0.1728661,
+                0.17979662,
+                0.1645278,
+                0.15060072,
+                0.138635,
+                0.12866527,
+            ]
+        )
+        self.iou_metrics = keras.metrics.IoU(num_classes=num_classes, target_class_ids=[0])
         self.AUC_metrics = keras.metrics.AUC()
         self.FP_metrics = keras.metrics.FalsePositives()
         self.TN_metrics = tf.keras.metrics.TrueNegatives()
 
-        
     def load_image(self, datapoint):
         # resize images to 128 x 128 pixels
-        input_image = tf.image.resize(datapoint['image'], (128, 128))
+        input_image = tf.image.resize(datapoint["image"], (128, 128))
         input_mask = tf.image.resize(
-            datapoint['segmentation_mask'],
+            datapoint["segmentation_mask"],
             (128, 128),
-            method = tf.image.ResizeMethod.NEAREST_NEIGHBOR,
+            method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
         )
 
         # normalize image
@@ -69,7 +102,7 @@ class UNet():
         input_image /= self.image_std
 
         return input_image, input_mask
-    
+
     def upsample(self, filters, size, apply_dropout=False):
         """Upsamples an input.
 
@@ -84,14 +117,14 @@ class UNet():
             Upsample Sequential Model
         """
 
-        initializer = tf.random_normal_initializer(0., 0.02)
+        initializer = tf.random_normal_initializer(0.0, 0.02)
 
         result = tf.keras.Sequential()
         result.add(
-            tf.keras.layers.Conv2DTranspose(filters, size, strides=2,
-                                            padding='same',
-                                            kernel_initializer=initializer,
-                                            use_bias=False))
+            tf.keras.layers.Conv2DTranspose(
+                filters, size, strides=2, padding="same", kernel_initializer=initializer, use_bias=False
+            )
+        )
 
         result.add(tf.keras.layers.BatchNormalization())
 
@@ -101,7 +134,7 @@ class UNet():
         result.add(tf.keras.layers.ReLU())
 
         return result
-    
+
     def unet_model(self):
         """
         Creates a modified U-Net model.
@@ -111,15 +144,17 @@ class UNet():
         The decoder/sampler is a series of upsample blocks.
         """
 
-        base_model = tf.keras.applications.MobileNetV2(input_shape=[128, 128, self.input_channels], include_top=False, weights=None)
+        base_model = tf.keras.applications.MobileNetV2(
+            input_shape=[128, 128, self.input_channels], include_top=False, weights=None
+        )
 
         # Use the activations of these layers
         layer_names = [
-            'block_1_expand_relu',   # 64x64
-            'block_3_expand_relu',   # 32x32
-            'block_6_expand_relu',   # 16x16
-            'block_13_expand_relu',  # 8x8
-            'block_16_project',      # 4x4
+            "block_1_expand_relu",  # 64x64
+            "block_3_expand_relu",  # 32x32
+            "block_6_expand_relu",  # 16x16
+            "block_13_expand_relu",  # 8x8
+            "block_16_project",  # 4x4
         ]
         base_model_outputs = [base_model.get_layer(name).output for name in layer_names]
 
@@ -132,7 +167,7 @@ class UNet():
             self.upsample(512, 3),  # 4x4 -> 8x8
             self.upsample(256, 3),  # 8x8 -> 16x16
             self.upsample(128, 3),  # 16x16 -> 32x32
-            self.upsample(64, 3),   # 32x32 -> 64x64
+            self.upsample(64, 3),  # 32x32 -> 64x64
         ]
 
         inputs = tf.keras.layers.Input(shape=[128, 128, self.input_channels])
@@ -150,51 +185,50 @@ class UNet():
 
         # This is the last layer of the model
         last = tf.keras.layers.Conv2DTranspose(
-            filters=self.num_classes, kernel_size=3, strides=2,
-            padding='same')  #64x64 -> 128x128
+            filters=self.num_classes, kernel_size=3, strides=2, padding="same"
+        )  # 64x64 -> 128x128
 
         x = last(x)
 
         return tf.keras.Model(inputs=inputs, outputs=x)
 
-
-    def iou_metric(self, y_true, y_pred):   
+    def iou_metric(self, y_true, y_pred):
         # Apply softmax to logits
         y_pred = tf.nn.softmax(y_pred, axis=-1)
-        y_pred = tf.argmax(y_pred, axis=-1)  
-        y_pred = tf.expand_dims(y_pred, axis=-1)  
-        
+        y_pred = tf.argmax(y_pred, axis=-1)
+        y_pred = tf.expand_dims(y_pred, axis=-1)
+
         # Ensure y_true has the same type and shape
         y_true = tf.cast(y_true, tf.int32)  # Shape: (batch_size, height, width, 1)
 
         # Calculate IoU
         self.iou_metrics.update_state(y_true, y_pred)
         iou = self.iou_metrics.result()
-        
+
         return iou
-    
+
     def FPR_metric(self, y_true, y_pred):
         # False positive rates
         # Apply softmax to logits
         smooth = tf.constant(1e-17)
         y_pred = tf.nn.softmax(y_pred, axis=-1)
-        y_pred = tf.argmax(y_pred, axis=-1)  
-        y_pred = tf.expand_dims(y_pred, axis=-1)  
-        
+        y_pred = tf.argmax(y_pred, axis=-1)
+        y_pred = tf.expand_dims(y_pred, axis=-1)
+
         # Ensure y_true has the same type and shape
         y_true = tf.cast(y_true, tf.int32)  # Shape: (batch_size, height, width, 1)
-        
+
         # Update states for TN and FP metrics
         self.FP_metrics.update_state(y_true, y_pred)
         self.TN_metrics.update_state(y_true, y_pred)
         TN = self.TN_metrics.result()
         FP = self.FP_metrics.result()
-        
+
         # Calculate FPR
         FPR = FP / (FP + TN + smooth)
 
         return FPR
-    
+
     def AUC_metric(self, y_true, y_pred):
         # Area under curve
         # Apply softmax to logits
@@ -204,40 +238,39 @@ class UNet():
         y_true = tf.cast(y_true, tf.int32)
         self.AUC_metrics.update_state(y_true, y_pred)
         AUC = self.AUC_metrics.result()
-        
-        return AUC
-        
-    def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=1, lr=0.001):
-       self.model.compile(optimizer='adam',
-                        #   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                          loss=dice_loss,
-                          metrics=[
-                                   'accuracy',
-                                   self.iou_metric,
-                                   self.AUC_metric,
-                                   self.FPR_metric,
-                                   ],
-                          )
-       
-       train_images = train_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
-       val_images = val_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
 
-       train_batches = (
-          train_images
-          .cache()
-          .shuffle(buffer_size)
-          .batch(batch_size)
-          .repeat(2)
-          .map(Augment())
-          .prefetch(buffer_size=tf.data.AUTOTUNE))
-       
-       val_batches = val_images.batch(batch_size)
-       
-       model_history = self.model.fit(train_batches, 
-                                      epochs=epochs,
-                                      validation_data=val_batches)
-       
-       return model_history
+        return AUC
+
+    def train(self, train_dataset, val_dataset, epochs=20, batch_size=64, buffer_size=1000, val_subsplits=1, lr=0.001):
+        self.model.compile(
+            optimizer="adam",
+            #   loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+            loss=dice_loss,
+            metrics=[
+                "accuracy",
+                self.iou_metric,
+                self.AUC_metric,
+                self.FPR_metric,
+            ],
+        )
+
+        train_images = train_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
+        val_images = val_dataset.map(self.load_image, num_parallel_calls=tf.data.AUTOTUNE)
+
+        train_batches = (
+            train_images.cache()
+            .shuffle(buffer_size)
+            .batch(batch_size)
+            .repeat(2)
+            .map(Augment())
+            .prefetch(buffer_size=tf.data.AUTOTUNE)
+        )
+
+        val_batches = val_images.batch(batch_size)
+
+        model_history = self.model.fit(train_batches, epochs=epochs, validation_data=val_batches)
+
+        return model_history
 
     def create_mask(self, prediction):
         pred_mask = tf.math.softmax(prediction, axis=-1)
