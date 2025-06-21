@@ -3,13 +3,13 @@ ipython==8.27.0
 jupyter_client==8.6.3
 jupyter_core==5.7.2
 matplotlib-inline==0.1.7
-numpy==2.0.2
+numpy
 opencv-python==4.10.0.84
 pandas==2.2.3
 ipywidgets==8.1.5
 matplotlib==3.9.2
 pillow==11.0.0
-tensorflow==2.18.0
+tensorflow==2.19
 keras-cv==0.9.0
 pyyaml==6.0.2
 scikit-image==0.25.0
