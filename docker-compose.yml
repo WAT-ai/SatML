@@ -1,0 +1,17 @@
+services:
+  satml-dev:
+    image: satml_dev_image
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/workspace/app
+    working_dir: /workspace/app
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    stdin_open: true
+    tty: true
