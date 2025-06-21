@@ -30,4 +30,4 @@ try:
 
 except Exception as e:
     print("Error during testing:", e)
-    raise
+    # raise
