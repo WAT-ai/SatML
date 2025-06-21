@@ -3,7 +3,7 @@ services:
     image: satml_dev_image
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dev_gpu.Dockerfile
     volumes:
       - .:/workspace/app
     working_dir: /workspace/app
