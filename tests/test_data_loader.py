@@ -17,7 +17,7 @@ class TestCreateDataset(unittest.TestCase):
         # Check the shape and data type of a single batch
         for sample in dataset.take(1):
             self.assertTrue("image" in sample, "Sample should contain 'image' key")
-            self.assertTrue("segmentation_mask" in sample, "Sample should contain 'segmentation_key' key")
+            self.assertTrue("segmentation_mask" in sample, "Sample should contain 'segmentation_mask' key")
             self.assertTrue("directory_path" in sample, "Sample should contain 'directory_path' key")
 
             self.assertEqual(sample["image"].shape, (512, 512, 16), "Images shape does not match expected dimensions")

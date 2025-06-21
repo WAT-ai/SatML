@@ -197,7 +197,7 @@ def bbox_data_generator(
                 yield images, np.array(bboxes, dtype=np.float32), sub_dir
 
 
-def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.ndarray, str], None, None]:
     """
     Load images, their labels, and the directory path from subdirectories of a specified directory.
 
@@ -205,7 +205,7 @@ def data_generator(dir: str | os.PathLike) -> Generator[Tuple[np.ndarray, np.nda
         dir (str | os.PathLike): Path to the base directory containing image subdirectories.
 
     Yields:
-        Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+        Generator[Tuple[np.ndarray, np.ndarray, str], None, None]:
             - A numpy array of images with shape (512, 512, 16) as float32 format.
             - A numpy array of labels with shape (512, 512, 1) as float32 format.
             - Path to the sub_dir directory containing 16 images.

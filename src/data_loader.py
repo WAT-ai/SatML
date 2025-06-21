@@ -29,7 +29,7 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
         - {"image": image_data, "segmentation_mask": label_data}
         - "image": (512, 512, 16) in float32.
         - "segmentation_mask": (512, 512, 1) in float32.
-        - "directory": tf.string
+        - "directory_path": tf.string
 
     Args:
         dir (str | os.PathLike): Path to the directory containing the data.

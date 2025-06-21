@@ -1,33 +1,37 @@
 import tensorflow as tf
 import numpy as np
+from unittest import TestCase
 
-try:
-    # Load the TensorFlow Lite model
-    interpreter = tf.lite.Interpreter(model_path="model.tflite")
-    # Allocate memory for model execution
-    interpreter.allocate_tensors()
 
-    # Get input and output details (i.e. shape of the input tensor, data type required for the input)
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
+class TestLiteModel(TestCase):
+    def test_lite_model_inference(self):
+        try:
+            # Load the TensorFlow Lite model
+            interpreter = tf.lite.Interpreter(model_path="model.tflite")
+            # Allocate memory for model execution
+            interpreter.allocate_tensors()
 
-    print("Input Details:", input_details)
-    print("Output Details:", output_details)
+            # Get input and output details (i.e. shape of the input tensor, data type required for the input)
+            input_details = interpreter.get_input_details()
+            output_details = interpreter.get_output_details()
 
-    # Create dummy input image with correct shape
-    input_shape = input_details[0]['shape']
-    dummy_input = np.random.rand(*input_shape).astype(np.float32)
+            print("Input Details:", input_details)
+            print("Output Details:", output_details)
 
-    # Feed dummy input to model
-    interpreter.set_tensor(input_details[0]['index'], dummy_input)
+            # Create dummy input image with correct shape
+            input_shape = input_details[0]["shape"]
+            dummy_input = np.random.rand(*input_shape).astype(np.float32)
 
-    # Run inference
-    interpreter.invoke()
+            # Feed dummy input to model
+            interpreter.set_tensor(input_details[0]["index"], dummy_input)
 
-    # Show predicted bounding boxes
-    output_data = interpreter.get_tensor(output_details[0]['index'])
-    print("Predicted Bounding Boxes:", output_data)
+            # Run inference
+            interpreter.invoke()
 
-except Exception as e:
-    print("Error during testing:", e)
-    # raise
+            # Show predicted bounding boxes
+            output_data = interpreter.get_tensor(output_details[0]["index"])
+            print("Predicted Bounding Boxes:", output_data)
+
+        except Exception as e:
+            print("Error during testing:", e)
+            # raise
