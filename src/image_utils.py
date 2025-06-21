@@ -6,9 +6,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from skimage import measure
 from typing import Tuple, Generator, Optional, Union
-from ipywidgets import interact
 from keras_cv import losses
-from config.constants import IMAGE_FILE_NAMES
+from src.constants import IMAGE_FILE_NAMES
 
 
 def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
