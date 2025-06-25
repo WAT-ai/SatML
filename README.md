@@ -26,12 +26,15 @@ Use Python 3.11 for the current requirements.
 ![Model Inference Flow](./docs/inference.png)
 
 ## Contributors
-- [Prahar Ijner](https://github.com/pijner)
+- [Prahar Ijner](https://github.com/pijner) [TPM]
+- [Sarah Ali](https://github.com/sarahmakki12) [TPM]
+- [Harsh Patel](https://github.com/hpatel0816) [active core member]
+- [Michelle Yao](https://github.com/michellejyao) [active core member]
+- [Yasmeen Elkheir](https://github.com/yasmeene) [active core member]
+- [Madeline Kim](https://github.com/madelineekim) [active core member]
+- [Chloe Zheng](https://github.com/lilmonkey912) [active core member]
+---
 - [Kelvin Ying](https://github.com/KelvYing)
-- [Yasmeen Elkheir](https://github.com/yasmeene)
 - [Calista Besseling](https://github.com/CalistaBesseling)
-- [Harsh Patel](https://github.com/hpatel0816)
-- [Sarah Ali](https://github.com/sarahmakki12)
-- [Madeline Kim](https://github.com/madelineekim)
 - [Cristian Moretto](https://github.com/criscreates)
-- [Michelle Yao](https://github.com/michellejyao)
+---
