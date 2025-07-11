@@ -2,6 +2,7 @@ import os
 import tensorflow as tf
 
 from src.image_utils import data_generator, bbox_data_generator, has_valid_bbox
+from src.constants import IMAGE_FILE_NAMES
 
 
 def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = [], force_square: bool = False) -> tf.data.Dataset:
@@ -13,7 +14,7 @@ def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = [], force_s
         - Labels: (max_boxes, 4)
     """
     output_sig = (
-        tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
+        tf.TensorSpec(shape=(512, 512, len(IMAGE_FILE_NAMES)), dtype=tf.float32),  # Images
         tf.TensorSpec(shape=(max_boxes, 5), dtype=tf.float32),  # bounding box labels and objectness score
         tf.TensorSpec(shape=(), dtype=tf.string)                # Image directory path
     )
@@ -38,7 +39,7 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
         tf.data.Dataset: A TensorFlow dataset.
     """
     output_sig = (
-        tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
+        tf.TensorSpec(shape=(512, 512, len(IMAGE_FILE_NAMES)), dtype=tf.float32),  # Images
         tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32),   # Labels
         tf.TensorSpec(shape=(), dtype=tf.string)                # Directory
     )
