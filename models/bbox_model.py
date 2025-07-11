@@ -73,7 +73,7 @@ class BBoxModel:
                 tf.keras.layers.Dropout(0.2),
                 # Bounding Box Output
                 tf.keras.layers.Dense(4 * max_boxes, activation="sigmoid"),
-                tf.keras.layers.Reshape((max_boxes, 4)),
+                tf.keras.layers.Reshape((max_boxes, 5)),
             ]
         )
         return model

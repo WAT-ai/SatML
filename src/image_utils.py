@@ -1,10 +1,10 @@
 import os
+import cv2
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from PIL import Image
-from skimage import measure
 from typing import Tuple, Generator, Optional, Union
 from keras_cv import losses
 from src.constants import IMAGE_FILE_NAMES
@@ -184,16 +184,7 @@ def bbox_data_generator(
 
                 # make surue its binary or integer type
                 label_mask = label_mask.astype(int)
-
-                # NOTE: get_single_bounding_box only generates one bounding box
-                bboxes = [
-                    bbox
-                    for bbox in [get_single_bounding_box(label_mask, force_square=force_square)]
-                    if is_valid_bbox(bbox)
-                ]
-
-                if len(bboxes) < max_boxes:
-                    bboxes.extend([[0, 0, 0, 0]] * (max_boxes - len(bboxes)))
+                bboxes = extract_bounding_boxes(label_mask, num_boxes=max_boxes, force_square=force_square)
 
                 yield images, np.array(bboxes, dtype=np.float32), sub_dir
 
@@ -243,17 +234,68 @@ Returns:
 """
 
 
-def binary_bbox(label_mask):
-    assert label_mask.ndim == 2, "labelMask must be a 2D numpy array"
+def extract_bounding_boxes(
+    mask: np.ndarray, num_boxes: int = None, force_square: bool = False, padding: int = 10, kernel_size: int = 10
+) -> list:
+    """
+    Extract bounding boxes from a binary mask.
 
-    labelled_arr = measure.label(label_image=label_mask, connectivity=2)
-    bboxes = []
+    Parameters:
+        mask (np.ndarray): Binary mask of shape (H, W)
+        num_boxes (int, optional): Limit the number of boxes returned. If None, return all.
+        force_square (bool): If True, force square bounding boxes.
+        padding (int): Padding around boxes (in pixels) before normalization, default is 10.
+        kernel_size (int): Size of the kernel for morphological dilation, default is 10.
 
-    for region in measure.regionprops(labelled_arr):
-        min_row, min_col, max_row, max_col = region.bbox
-        bboxes.append((min_col, (max_col - 1), min_row, (max_row - 1)))
+    Returns:
+        boxes: List of (objectness, x_center, y_center, width, height), all normalized to [0, 1].
+    """
+    H, W = mask.shape
+    boxes = []
+    kernel = np.ones((kernel_size, kernel_size), dtype=np.uint8)
+    merged_mask = cv2.dilate(mask.astype(np.uint8), kernel, iterations=1).astype(np.uint8)
 
-    return np.array(bboxes)
+    num_components, _, stats, centroids = cv2.connectedComponentsWithStats(merged_mask, connectivity=8)
+
+    for i in range(1, num_components):  # skip background
+        x, y, w, h, area = stats[i]
+        if area == 0:
+            continue
+
+        if force_square:
+            side = max(w, h)
+            cx, cy = centroids[i]
+            x_min = int(cx - side / 2)
+            y_min = int(cy - side / 2)
+            x_max = x_min + side
+            y_max = y_min + side
+        else:
+            x_min, y_min = x, y
+            x_max, y_max = x + w, y + h
+
+        # Apply padding
+        x_min = max(0, x_min - padding)
+        y_min = max(0, y_min - padding)
+        x_max = min(W, x_max + padding)
+        y_max = min(H, y_max + padding)
+
+        # Normalize
+        box_w = x_max - x_min
+        box_h = y_max - y_min
+        x_center = (x_min + x_max) / 2 / W
+        y_center = (y_min + y_max) / 2 / H
+        width = box_w / W
+        height = box_h / H
+
+        boxes.append((1.0, x_center, y_center, width, height))
+
+    if num_boxes is not None:
+        if len(boxes) > num_boxes:
+            boxes = boxes[:num_boxes]
+        elif len(boxes) < num_boxes:
+            boxes.extend([(0.0, 0.0, 0.0, 0.0, 0.0)] * (num_boxes - len(boxes)))
+
+    return boxes
 
 
 def get_single_bounding_box(mask: np.ndarray, force_square: bool = True):
