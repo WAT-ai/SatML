@@ -141,17 +141,19 @@ def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.n
         raise FileNotFoundError(f"Unable to find the {dir} directory.")
 
 
-def is_valid_bbox(bbox: Union[np.ndarray, tf.Tensor]) -> bool:
-    """Checks if a given bounding box is valid
+def has_valid_bbox(bbox_list: Union[np.ndarray, tf.Tensor]) -> bool:
+    """Checks if a given bounding box list has a valid bounding box
 
     Args:
-        bbox (np.ndarray): x-left, x-right, y-top, y-bottom coordinates
+        bbox_list (np.ndarray): objectness, x_center, y_center, width, height
     """
-    x_left, x_right, y_top, y_bottom = bbox[0], bbox[1], bbox[2], bbox[3]
-    if x_left >= x_right or y_top >= y_bottom:
-        return False
+    bbox_list = tf.reshape(bbox_list, [-1, 5])
+    objectness = bbox_list[:, 0]
+    width = bbox_list[:, 3]
+    height = bbox_list[:, 4]
 
-    return True
+    valid = tf.logical_and(objectness > 0.0, tf.logical_and(width > 0.0, height > 0.0))
+    return tf.reduce_any(valid)
 
 
 def bbox_data_generator(

@@ -8,7 +8,7 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 
 from src.losses import iou_loss, modified_mean_squared_error, ciou_loss
-from src.data_loader import is_valid_bbox, create_bbox_dataset
+from src.data_loader import has_valid_bbox, create_bbox_dataset
 
 
 class BBoxModel:
@@ -72,7 +72,7 @@ class BBoxModel:
                 tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.Dropout(0.2),
                 # Bounding Box Output
-                tf.keras.layers.Dense(4 * max_boxes, activation="sigmoid"),
+                tf.keras.layers.Dense(5 * max_boxes, activation="sigmoid"),
                 tf.keras.layers.Reshape((max_boxes, 5)),
             ]
         )
@@ -94,7 +94,7 @@ class BBoxModel:
         sum_squares = tf.zeros((16,), dtype=tf.float32)
         num_pixels = tf.Variable(0, dtype=tf.int32)
 
-        for image, _ in dataset:
+        for image, _, _ in dataset:
             num_pixels.assign_add(tf.reduce_prod(tf.shape(image)[:-1]))  # Total pixels across batch
             sum_pixels += tf.reduce_sum(image, axis=[0, 1])  # Sum across height & width
             sum_squares += tf.reduce_sum(tf.square(image), axis=[0, 1])  # Sum of squares
@@ -113,7 +113,7 @@ class BBoxModel:
     def preprocess_dataset(self, dataset: tf.data.Dataset):
         def is_valid_sample(image, bboxes):
             """Returns True if the image has at least one valid bounding box."""
-            valid_mask = tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool)
+            valid_mask = tf.map_fn(has_valid_bbox, bboxes, dtype=tf.bool)
             return tf.reduce_any(valid_mask)
 
         def is_invalid_sample(image, bboxes):
@@ -122,10 +122,8 @@ class BBoxModel:
 
         mean, std = self.get_normalization_constants(dataset) if self.normalize else (0.0, 1.0)
 
-        dataset = dataset.map(lambda img, lab: (img, BBoxModel.normalize_bbox(lab, img.shape)))
-
         # resize images
-        dataset = dataset.map(lambda img, lab: (tf.image.resize(img, self.input_shape[:-1]), lab))
+        dataset = dataset.map(lambda img, lab, _: (tf.image.resize(img, self.input_shape[:-1]), lab))
 
         dataset = dataset.flat_map(lambda img, label: BBoxModel.augment_dataset(img, label, self.augmentations))
 
@@ -156,154 +154,25 @@ class BBoxModel:
         return (image - mean) / std
 
     @staticmethod
-    def normalize_bbox(bbox, img_shape):
-        height = tf.cast(img_shape[0], tf.float32)
-        width = tf.cast(img_shape[1], tf.float32)
-
-        # Normalize bounding box coordinates
-        bbox = tf.stack(
-            [
-                tf.round(bbox[..., 0] / width * 100) / 100,  # x-left
-                tf.round(bbox[..., 1] / width * 100) / 100,  # x-right
-                tf.round(bbox[..., 2] / height * 100) / 100,  # y-top
-                tf.round(bbox[..., 3] / height * 100) / 100,  # y-bottom
-            ],
-            axis=-1,
-        )
-
-        return bbox
-
-    @staticmethod
     def augment_image(image, bboxes, transformation, max_translate=0.3, crop_fraction=0.6):
-        augmented_bboxes = []
-        valid_mask = tf.cast(tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
-        has_valid_boxes = tf.reduce_any(valid_mask)
-
         if transformation == "none":
-            return (image, bboxes) if has_valid_boxes else (image, tf.zeros_like(bboxes))
+            return image, bboxes
 
-        if not has_valid_boxes:
-            return image, tf.zeros_like(bboxes)
-
-        valid_mask = tf.expand_dims(valid_mask, axis=-1)
-        valid_mask = tf.broadcast_to(valid_mask, tf.shape(bboxes))
-
-        if transformation == "horizontal_flip":
+        elif transformation == "horizontal_flip":
             image = tf.image.flip_left_right(image)
-            augmented_bboxes = tf.where(
-                valid_mask,
-                tf.stack(
-                    [
-                        1 - bboxes[:, 1],
-                        1 - bboxes[:, 0],
-                        bboxes[:, 2],
-                        bboxes[:, 3],
-                    ],
-                    axis=1,
-                ),
-                tf.fill(tf.shape(bboxes), 0.0),
-            )
+            # only adjust x_center if objectness is 1
+            x_center = (1.0 - bboxes[:, 1]) * bboxes[:, 0]
+            bboxes = tf.stack([bboxes[:, 0], x_center, bboxes[:, 2], bboxes[:, 3], bboxes[:, 4]], axis=-1)
+            return image, bboxes
+
         elif transformation == "vertical_flip":
             image = tf.image.flip_up_down(image)
-            augmented_bboxes = tf.where(
-                valid_mask,
-                tf.stack(
-                    [
-                        bboxes[:, 0],
-                        bboxes[:, 1],
-                        1 - bboxes[:, 3],
-                        1 - bboxes[:, 2],
-                    ],
-                    axis=1,
-                ),
-                tf.fill(tf.shape(bboxes), 0.0),
-            )
-        elif transformation == "rotate":
-            image = tf.image.rot90(image)
-            augmented_bboxes = tf.where(
-                valid_mask,
-                tf.stack(
-                    [
-                        1 - bboxes[:, 3],
-                        1 - bboxes[:, 2],
-                        bboxes[:, 0],
-                        bboxes[:, 1],
-                    ],
-                    axis=1,
-                ),
-                tf.fill(tf.shape(bboxes), 0.0),
-            )
-        elif transformation == "translate":
-            # Generate random translation offsets within the max_translate range
-            dx = random.uniform(-max_translate, max_translate)
-            dy = random.uniform(-max_translate, max_translate)
+            # only adjust y_center if objectness is 1
+            y_center = (1.0 - bboxes[:, 2]) * bboxes[:, 0]
+            bboxes = tf.stack([bboxes[:, 0], bboxes[:, 1], y_center, bboxes[:, 3], bboxes[:, 4]], axis=-1)
+            return image, bboxes
 
-            # Convert to pixel shifts
-            shift_x = int(dx * tf.cast(tf.shape(image)[1], tf.float32))
-            shift_y = int(dy * tf.cast(tf.shape(image)[0], tf.float32))
-
-            # Pad and crop the image to simulate translation
-            paddings = [
-                [tf.maximum(shift_y, 0), tf.maximum(-shift_y, 0)],
-                [tf.maximum(shift_x, 0), tf.maximum(-shift_x, 0)],
-                [0, 0],
-            ]
-            image = tf.pad(image, paddings, mode="CONSTANT", constant_values=0)
-            image = tf.image.crop_to_bounding_box(
-                image,
-                offset_height=tf.maximum(-shift_y, 0),
-                offset_width=tf.maximum(-shift_x, 0),
-                target_height=tf.shape(image)[0] - tf.abs(shift_y),
-                target_width=tf.shape(image)[1] - tf.abs(shift_x),
-            )
-
-            # Adjust bounding boxes
-            augmented_bboxes = tf.where(
-                valid_mask,
-                tf.stack(
-                    [
-                        tf.clip_by_value(bboxes[:, 0] + tf.cast(dx, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
-                        tf.clip_by_value(bboxes[:, 1] + tf.cast(dx, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
-                        tf.clip_by_value(bboxes[:, 2] + tf.cast(dy, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
-                        tf.clip_by_value(bboxes[:, 3] + tf.cast(dy, tf.float32), 0.0, tf.cast(1.0, tf.float32)),
-                    ],
-                    axis=1,
-                ),
-                tf.fill(tf.shape(bboxes), 0.0),
-            )
-        elif transformation == "crop":
-            img_h, img_w, _ = tf.unstack(tf.shape(image))
-
-            # Determine crop size
-            crop_h = tf.cast(tf.round(crop_fraction * tf.cast(img_h, tf.float32)), tf.int32)
-            crop_w = tf.cast(tf.round(crop_fraction * tf.cast(img_w, tf.float32)), tf.int32)
-
-            # Randomly select top-left corner for cropping
-            max_y_offset = img_h - crop_h
-            max_x_offset = img_w - crop_w
-            offset_y = tf.random.uniform([], 0, max_y_offset, dtype=tf.int32, seed=42)
-            offset_x = tf.random.uniform([], 0, max_x_offset, dtype=tf.int32, seed=42)
-
-            # Crop image
-            image = tf.image.crop_to_bounding_box(image, offset_y, offset_x, crop_h, crop_w)
-            # Resize back to original size
-            image = tf.image.resize(image, [img_h, img_w])
-
-            # Adjust bounding boxes
-            augmented_bboxes = tf.stack(
-                [
-                    (bboxes[:, 0] - tf.cast(offset_x, tf.float32) / tf.cast(img_w, tf.float32)) / crop_fraction,
-                    (bboxes[:, 1] - tf.cast(offset_x, tf.float32) / tf.cast(img_w, tf.float32)) / crop_fraction,
-                    (bboxes[:, 2] - tf.cast(offset_y, tf.float32) / tf.cast(img_h, tf.float32)) / crop_fraction,
-                    (bboxes[:, 3] - tf.cast(offset_y, tf.float32) / tf.cast(img_h, tf.float32)) / crop_fraction,
-                ],
-                axis=1,
-            )
-
-            # Ensure bounding boxes are within valid range
-            augmented_bboxes = tf.clip_by_value(augmented_bboxes, 0.0, 1.0)
-
-        return image, augmented_bboxes
+        raise ValueError(f"Unsupported transformation: {transformation}")
 
     @staticmethod
     def filter_invalid_sample(image, bboxes, threshold=0.5):
@@ -318,23 +187,24 @@ class BBoxModel:
         Returns:
             tf.bool: Whether the sample should be kept.
         """
-        valid_mask = tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool)
+        valid_mask = tf.map_fn(has_valid_bbox, bboxes, dtype=tf.bool)
         valid_count = tf.reduce_sum(tf.cast(valid_mask, tf.float32))
         total_count = tf.cast(tf.shape(bboxes)[0], tf.float32)
 
         return valid_count / total_count >= threshold
 
     @staticmethod
-    def augment_dataset(
-        image,
-        bbox,
-        augmentations=["none", "horizontal_flip", "vertical_flip", "rotate", "translate"],
-    ):
+    def augment_dataset(image, bbox, augmentations=["none", "horizontal_flip", "vertical_flip"]):
         datasets = []
         for augmentation in augmentations:
             img, box = BBoxModel.augment_image(image, bbox, augmentation)
             datasets.append(tf.data.Dataset.from_tensors((img, box)))
-        return tf.data.Dataset.from_tensor_slices(datasets).flat_map(lambda x: x)
+
+        full_aug_ds = datasets[0]
+        for ds in datasets[1:]:
+            full_aug_ds = full_aug_ds.concatenate(ds)
+
+        return full_aug_ds
 
     def train(self, dataset, epochs=10, batch_size=8):
         # Splitting the dataset for training and testing.

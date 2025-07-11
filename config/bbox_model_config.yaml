@@ -2,7 +2,7 @@
 
 # Data config
 data_dir: './data/raw_data/STARCOP_train_easy'
-max_boxes: 1
+max_boxes: 5
 exclude_dirs: [
   'ang20190922t192642_r2048_c0_w512_h512',
   'ang20190922t192642_r10240_c0_w512_h512',
@@ -271,7 +271,9 @@ force_square: False
 blank_percentage: 0.1
 
 augmentations:
-- 'crop'
+- 'none'
+- 'horizontal_flip'
+- 'vertical_flip'
 
 # output config
 output_dir: './output/bbox_model'

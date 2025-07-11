@@ -1,7 +1,7 @@
 import os
 import tensorflow as tf
 
-from src.image_utils import data_generator, bbox_data_generator, is_valid_bbox
+from src.image_utils import data_generator, bbox_data_generator, has_valid_bbox
 
 
 def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = [], force_square: bool = False) -> tf.data.Dataset:
@@ -63,7 +63,7 @@ def augment_image(image, bboxes, transformation):
 
     augmented_bboxes = []
 
-    valid_mask = tf.cast(tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
+    valid_mask = tf.cast(tf.map_fn(has_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
     valid_mask = tf.expand_dims(valid_mask, axis=-1)  # Shape becomes (10, 1)
     valid_mask = tf.broadcast_to(valid_mask, tf.shape(bboxes))  # Shape (10, 4)
 
