@@ -21,7 +21,10 @@ def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     Returns:
         np.ndarray: numpy array containing file contents. Assumes BGR format
     """
-    pass  # TODO: Finish this function
+    with Image.open(file_path) as img:
+        data = np.array(img, dtype=np.float32)
+
+    return data
 
 
 def plot_tiff_images(dir: str | os.PathLike) -> None:
@@ -125,12 +128,11 @@ def load_image_set(dir: str | os.PathLike, file_names: Tuple[str]) -> Tuple[np.n
             if file in file_names or file in img_labels:
                 file_path = os.path.join(dir, file)
                 try:
-                    with Image.open(file_path) as img:
-                        data = np.array(img, dtype=np.float32)  # Store img/labels as float32 type array
-                        if file in file_names:
-                            images.append(data)
-                        else:
-                            labels.append(data)
+                    data = read_tiff_from_file(file_path)
+                    if file in file_names:
+                        images.append(data)
+                    else:
+                        labels.append(data)
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
 
