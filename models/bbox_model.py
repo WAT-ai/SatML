@@ -7,7 +7,7 @@ from datetime import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 
-from src.losses import iou_loss, modified_mean_squared_error, ciou_loss
+from src.losses import iou_loss, modified_mean_squared_error, ciou_loss, yolo_dense_loss
 from src.data_loader import has_valid_bbox, create_bbox_dataset
 
 
@@ -81,7 +81,7 @@ class BBoxModel:
     def compile(
         self,
         optimizer=Adam(learning_rate=0.001),
-        loss=ciou_loss,
+        loss= yolo_dense_loss(),
         metrics=["mae", "accuracy"],
     ):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)

@@ -2,6 +2,42 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 
 
+def yolo_dense_loss(lambda_box=5.0, lambda_obj=1.0):
+    """
+    Custom YOLO-lite loss for Dense-based output (no classification, 1 class).
+
+    Parameters:
+        lambda_box: weight for the box regression loss
+        lambda_obj: weight for the objectness loss
+
+    Returns:
+        A TensorFlow loss function that takes (y_true, y_pred)
+    """
+
+    def loss_fn(y_true, y_pred):
+        # Split objectness and box coords
+        obj_true = y_true[..., 0]  # shape (batch, max_boxes)
+        box_true = y_true[..., 1:]  # shape (batch, max_boxes, 4)
+
+        obj_pred = y_pred[..., 0]
+        box_pred = y_pred[..., 1:]
+
+        # Objectness loss (BCE)
+        obj_loss = tf.keras.backend.binary_crossentropy(obj_true, obj_pred)
+
+        assert obj_loss.shape == obj_true.shape, f"Objectness loss shape mismatch {obj_loss.shape} != {obj_true.shape}"
+
+        # Box loss (L2), only where objectness == 1
+        box_loss = tf.reduce_sum(tf.square(box_true - box_pred), axis=-1)  # (batch, max_boxes)
+        box_loss = tf.where(obj_true > 0.0, box_loss, tf.zeros_like(box_loss))
+
+        # Final combined loss
+        total_loss = lambda_obj * obj_loss + lambda_box * box_loss
+        return tf.reduce_mean(total_loss)
+
+    return loss_fn
+
+
 def dice_loss(y_true, y_pred, smooth=1):
     """Calculates the dice loss (negative dice coefficient)
 
