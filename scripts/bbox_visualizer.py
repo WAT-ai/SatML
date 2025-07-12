@@ -27,7 +27,7 @@ print("y_true:", len(y_true))
 
 def get_coords_from_bbox(bbox):
     """
-    Converts objectiveness, x_center, y_center, width, height format to x_left, x_right, y_top, y_bottom.
+    Converts objectness, x_center, y_center, width, height format to x_left, x_right, y_top, y_bottom.
     """
     x_center, y_center, width, height = bbox[1:5]
     x_left = x_center - width / 2
