@@ -7,8 +7,9 @@ from datetime import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 
-from src.losses import iou_loss, modified_mean_squared_error, ciou_loss, yolo_dense_loss
+from src.losses import iou_loss, modified_mean_squared_error, ciou_loss, yolo_dense_loss, yolo_grid_loss
 from src.data_loader import has_valid_bbox, create_bbox_dataset
+from src.constants import IMAGE_FILE_NAMES
 
 
 class BBoxModel:
@@ -21,6 +22,8 @@ class BBoxModel:
         model_fn=None,
         model_filepath=None,
         blank_percentage=0.1,
+        grid_size=16,
+        boxes_per_grid=1,
     ):
         self.input_shape = input_shape
         self.max_boxes = max_boxes
@@ -29,6 +32,8 @@ class BBoxModel:
         self.blank_percentage = blank_percentage
         self.norm_mean = None
         self.norm_std = None
+        self.grid_size = grid_size
+        self.boxes_per_grid = boxes_per_grid
         self.unique_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
         if model_filepath:
@@ -37,51 +42,43 @@ class BBoxModel:
             self.model = model_fn(input_shape, max_boxes) if model_fn else self._build_model(input_shape, max_boxes)
 
     def _build_model(self, img_shape, max_boxes):
-        model = tf.keras.Sequential(
-            [
-                tf.keras.layers.Input(shape=img_shape),
-                # Encoder
-                tf.keras.layers.Conv2D(16, (3, 3), padding="same"),
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.LeakyReLU(),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Conv2D(32, (3, 3), padding="same"),
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.LeakyReLU(),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Conv2D(64, (3, 3), padding="same"),
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.Activation("swish"),  # Using Swish activation
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Dropout(0.2),  # Slightly higher dropout as depth increases
-                tf.keras.layers.Conv2D(128, (3, 3), padding="same"),
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.Activation("swish"),
-                tf.keras.layers.MaxPooling2D((2, 2)),
-                tf.keras.layers.Dropout(0.2),
-                # Bottleneck
-                tf.keras.layers.Flatten(),
-                # Dense Layers for Bounding Box Regression
-                tf.keras.layers.Dense(128, activation="gelu"),  # Using GELU activation
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.Dropout(0.3),  # High dropout to regularize fully connected layers
-                tf.keras.layers.Dense(64, activation="gelu"),
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.Dropout(0.3),
-                tf.keras.layers.Dense(32, activation="gelu"),
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.Dropout(0.2),
-                # Bounding Box Output
-                tf.keras.layers.Dense(5 * max_boxes, activation="sigmoid"),
-                tf.keras.layers.Reshape((max_boxes, 5)),
-            ]
+        assert self.grid_size * self.grid_size * self.boxes_per_grid >= max_boxes, (
+            "Grid resolution too low for max_boxes"
         )
+
+        inputs = tf.keras.Input(shape=img_shape)
+
+        x = tf.keras.layers.Conv2D(16, 3, padding="same", activation="swish")(inputs)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.MaxPooling2D()(x)
+
+        x = tf.keras.layers.Conv2D(32, 3, padding="same", activation="swish")(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.MaxPooling2D()(x)
+
+        x = tf.keras.layers.Conv2D(64, 3, padding="same", activation="swish")(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.MaxPooling2D()(x)
+
+        x = tf.keras.layers.Conv2D(128, 3, padding="same", activation="swish")(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.MaxPooling2D()(x)
+
+        x = tf.keras.layers.Conv2D(256, 3, padding="same", activation="swish")(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.MaxPooling2D()(x)
+
+        output_channels = self.boxes_per_grid * 5
+        x = tf.keras.layers.Conv2D(output_channels, 1, activation="sigmoid")(x)
+        x = tf.keras.layers.Reshape((self.grid_size, self.grid_size, self.boxes_per_grid, 5))(x)
+
+        model = tf.keras.Model(inputs=inputs, outputs=x)
         return model
 
     def compile(
         self,
         optimizer=Adam(learning_rate=0.001),
-        loss= yolo_dense_loss(),
+        loss=yolo_grid_loss(),
         metrics=["mae", "accuracy"],
     ):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
@@ -90,8 +87,8 @@ class BBoxModel:
         if self.norm_mean is not None and self.norm_std is not None:
             return tf.constant(self.norm_mean, dtype=tf.float32), tf.constant(self.norm_std, dtype=tf.float32)
 
-        sum_pixels = tf.zeros((16,), dtype=tf.float32)
-        sum_squares = tf.zeros((16,), dtype=tf.float32)
+        sum_pixels = tf.zeros((dataset.element_spec[0].shape[-1],), dtype=tf.float32)
+        sum_squares = tf.zeros((dataset.element_spec[0].shape[-1],), dtype=tf.float32)
         num_pixels = tf.Variable(0, dtype=tf.int32)
 
         for image, _, _ in dataset:
@@ -147,6 +144,11 @@ class BBoxModel:
         else:
             dataset = valid_ds
 
+        dataset = dataset.map(
+            lambda img, lab: (img, BBoxModel.convert_boxes_to_grid_labels(lab, self.grid_size, self.boxes_per_grid)),
+            num_parallel_calls=tf.data.AUTOTUNE,
+        )
+
         return dataset
 
     @staticmethod
@@ -154,25 +156,107 @@ class BBoxModel:
         return (image - mean) / std
 
     @staticmethod
+    def convert_boxes_to_grid_labels(boxes, S=16, B=1):
+        """
+        Convert [max_boxes, 5] boxes to a YOLO-style (S, S, B, 5) grid.
+        boxes: [objectness, x_center, y_center, width, height] (all normalized to [0, 1])
+        """
+        boxes = tf.reshape(boxes, [-1, 5])
+        object_mask = boxes[:, 0] > 0.5
+        boxes = tf.boolean_mask(boxes, object_mask)
+
+        x, y = boxes[:, 1], boxes[:, 2]
+        i = tf.cast(tf.floor(y * S), tf.int32)
+        j = tf.cast(tf.floor(x * S), tf.int32)
+        i = tf.clip_by_value(i, 0, S - 1)
+        j = tf.clip_by_value(j, 0, S - 1)
+
+        # Compute offsets in cell
+        x_cell = x * S - tf.cast(j, tf.float32)
+        y_cell = y * S - tf.cast(i, tf.float32)
+
+        # Replace the original x, y with offsets
+        updated_boxes = tf.stack(
+            [
+                boxes[:, 0],  # objectness
+                x_cell,  # x offset in cell
+                y_cell,  # y offset in cell
+                boxes[:, 3],  # width
+                boxes[:, 4],  # height
+            ],
+            axis=-1,
+        )
+
+        indices = tf.stack([i, j, tf.zeros_like(i)], axis=1)
+
+        _, unique_idx = tf.unique(tf.cast(i * S + j, tf.int32))
+        indices = tf.gather(indices, unique_idx)
+        updates = tf.gather(updated_boxes, unique_idx)
+
+        grid = tf.tensor_scatter_nd_update(tf.zeros((S, S, B, 5), dtype=tf.float32), indices, updates)
+        return grid
+
+    @staticmethod
     def augment_image(image, bboxes, transformation, max_translate=0.3, crop_fraction=0.6):
+        """Apply a single transformation to image and bboxes."""
         if transformation == "none":
             return image, bboxes
 
-        elif transformation == "horizontal_flip":
+        # horizontal flip
+        if transformation == "horizontal_flip":
             image = tf.image.flip_left_right(image)
-            # only adjust x_center if objectness is 1
-            x_center = (1.0 - bboxes[:, 1]) * bboxes[:, 0]
-            bboxes = tf.stack([bboxes[:, 0], x_center, bboxes[:, 2], bboxes[:, 3], bboxes[:, 4]], axis=-1)
-            return image, bboxes
+            b = tf.identity(bboxes)
+            b_y = b[:, 2]
+            b_x = 1.0 - b[:, 1]
+            return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
 
-        elif transformation == "vertical_flip":
+        # vertical flip
+        if transformation == "vertical_flip":
             image = tf.image.flip_up_down(image)
-            # only adjust y_center if objectness is 1
-            y_center = (1.0 - bboxes[:, 2]) * bboxes[:, 0]
-            bboxes = tf.stack([bboxes[:, 0], bboxes[:, 1], y_center, bboxes[:, 3], bboxes[:, 4]], axis=-1)
-            return image, bboxes
+            b = tf.identity(bboxes)
+            b_x = b[:, 1]
+            b_y = 1.0 - b[:, 2]
+            return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
 
-        raise ValueError(f"Unsupported transformation: {transformation}")
+        # 90-degree rotation CCW
+        if transformation == "rotate":
+            image = tf.image.rot90(image, k=1)
+            b = tf.identity(bboxes)
+            x, y, w, h = b[:, 1], b[:, 2], b[:, 3], b[:, 4]
+            new_x = y
+            new_y = 1.0 - x
+            return image, tf.stack([b[:, 0], new_x, new_y, h, w], axis=1)
+
+        if transformation == "random_translate":
+            img_h = tf.shape(image)[0]
+            img_w = tf.shape(image)[1]
+            dx = tf.random.uniform([], -max_translate, max_translate)
+            dy = tf.random.uniform([], -max_translate, max_translate)
+            shift_x = tf.cast(dx * tf.cast(img_w, tf.float32), tf.int32)
+            shift_y = tf.cast(dy * tf.cast(img_h, tf.float32), tf.int32)
+            image = tf.roll(image, shift=[shift_y, shift_x], axis=[0, 1])
+            b = tf.identity(bboxes)
+            b_x = tf.clip_by_value(b[:, 1] + dx, 0.0, 1.0)
+            b_y = tf.clip_by_value(b[:, 2] + dy, 0.0, 1.0)
+            return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
+
+        if transformation == "random_crop":
+            img_h = tf.shape(image)[0]
+            img_w = tf.shape(image)[1]
+            crop_h = tf.cast(crop_fraction * tf.cast(img_h, tf.float32), tf.int32)
+            crop_w = tf.cast(crop_fraction * tf.cast(img_w, tf.float32), tf.int32)
+            offset_y = tf.random.uniform([], 0, img_h - crop_h + 1, dtype=tf.int32)
+            offset_x = tf.random.uniform([], 0, img_w - crop_w + 1, dtype=tf.int32)
+            cropped = tf.image.crop_to_bounding_box(image, offset_y, offset_x, crop_h, crop_w)
+            image = tf.image.resize(cropped, [img_h, img_w])
+            b = tf.identity(bboxes)
+            b_x = (b[:, 1] * tf.cast(img_w, tf.float32) - tf.cast(offset_x, tf.float32)) / tf.cast(crop_w, tf.float32)
+            b_y = (b[:, 2] * tf.cast(img_h, tf.float32) - tf.cast(offset_y, tf.float32)) / tf.cast(crop_h, tf.float32)
+            b_x = tf.clip_by_value(b_x, 0.0, 1.0)
+            b_y = tf.clip_by_value(b_y, 0.0, 1.0)
+            return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
+
+        raise ValueError(f"Unsupported augmentation: {transformation}")
 
     @staticmethod
     def filter_invalid_sample(image, bboxes, threshold=0.5):
@@ -207,33 +291,17 @@ class BBoxModel:
         return full_aug_ds
 
     def train(self, dataset, epochs=10, batch_size=8):
-        # Splitting the dataset for training and testing.
-        def is_test(x, _):
-            return x % 4 == 0
+        dataset = dataset.shuffle(1000)
+        test_dataset = dataset.enumerate().filter(lambda i, _: i % 4 == 0).map(lambda _, y: y)
+        train_dataset = dataset.enumerate().filter(lambda i, _: i % 4 != 0).map(lambda _, y: y)
 
-        def is_train(x, y):
-            return not is_test(x, y)
-
-        def recover(x, y):
-            return y
-
-        # Split the dataset for training.
-        test_dataset = dataset.enumerate().filter(is_test).map(recover)
-
-        # Split the dataset for testing/validation.
-        train_dataset = dataset.enumerate().filter(is_train).map(recover)
-        lr_patience = 20
         callbacks = [
-            tf.keras.callbacks.ReduceLROnPlateau(
-                monitor="val_loss", factor=0.1, patience=lr_patience, min_lr=1e-6, verbose=1
-            ),
-            tf.keras.callbacks.EarlyStopping(
-                monitor="val_loss", patience=lr_patience * 2.5, restore_best_weights=False
-            ),
+            tf.keras.callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.1, patience=20, min_lr=1e-6, verbose=1),
+            tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=50, restore_best_weights=True),
         ]
 
-        train_dataset = train_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE).cache()
-        test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE).cache()
+        train_dataset = train_dataset.cache().batch(batch_size).prefetch(tf.data.AUTOTUNE)
+        test_dataset = test_dataset.cache().batch(batch_size).prefetch(tf.data.AUTOTUNE)
         self.model.fit(train_dataset, epochs=epochs, callbacks=callbacks, validation_data=test_dataset)
 
     def evaluate(self, test_data):
@@ -278,6 +346,7 @@ class BBoxModel:
                 "iou_loss": iou_loss,
                 "modified_mean_squared_error": modified_mean_squared_error,
                 "ciou_loss": ciou_loss,
+                "loss_fn": yolo_dense_loss(),
             },
             safe_mode=False,  # This has to be false to allow loading the lambda layer
         )
@@ -303,7 +372,7 @@ if __name__ == "__main__":
     epochs = config_dict.get("epochs", 10)
 
     model = BBoxModel(
-        (*image_shape, 16),
+        (*image_shape, len(IMAGE_FILE_NAMES)),
         max_boxes,
         normalize=normalize,
         augmentations=augmentations,

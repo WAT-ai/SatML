@@ -38,6 +38,31 @@ def yolo_dense_loss(lambda_box=5.0, lambda_obj=1.0):
     return loss_fn
 
 
+def yolo_grid_loss(lambda_coord=5.0, lambda_noobj=0.5):
+    def loss_fn(y_true, y_pred):
+        # Shape: (batch, S, S, B, 5)
+        object_mask = y_true[..., 0]
+
+        # Coordinate loss (only where object exists)
+        xy_loss = tf.reduce_sum(tf.square(y_true[..., 1:3] - y_pred[..., 1:3]) * object_mask[..., tf.newaxis])
+
+        wh_loss = tf.reduce_sum(tf.square(y_true[..., 3:5] - y_pred[..., 3:5]) * object_mask[..., tf.newaxis])
+
+        # Objectness loss (binary cross-entropy)
+        bce = tf.keras.backend.binary_crossentropy
+        obj_loss = tf.reduce_sum(bce(y_true[..., 0], y_pred[..., 0]))
+
+        # No-object loss (optional — discourage false positives)
+        noobj_mask = 1.0 - object_mask
+        noobj_loss = tf.reduce_sum(lambda_noobj * bce(tf.zeros_like(y_pred[..., 0]), y_pred[..., 0]) * noobj_mask)
+
+        total_loss = lambda_coord * (xy_loss + wh_loss) + obj_loss + noobj_loss
+
+        return total_loss / tf.cast(tf.shape(y_true)[0], tf.float32)  # average over batch
+
+    return loss_fn
+
+
 def dice_loss(y_true, y_pred, smooth=1):
     """Calculates the dice loss (negative dice coefficient)
 

@@ -2,7 +2,7 @@
 
 # Data config
 data_dir: './data/raw_data/STARCOP_train_easy'
-max_boxes: 5
+max_boxes: 1
 exclude_dirs: [
   'ang20190922t192642_r2048_c0_w512_h512',
   'ang20190922t192642_r10240_c0_w512_h512',
