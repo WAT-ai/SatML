@@ -42,9 +42,8 @@ class BBoxModel:
             self.model = model_fn(input_shape, max_boxes) if model_fn else self._build_model(input_shape, max_boxes)
 
     def _build_model(self, img_shape, max_boxes):
-        assert self.grid_size * self.grid_size * self.boxes_per_grid >= max_boxes, (
-            "Grid resolution too low for max_boxes"
-        )
+        if self.grid_size * self.grid_size * self.boxes_per_grid < max_boxes:
+            raise ValueError("Grid resolution too low for max_boxes")
 
         inputs = tf.keras.Input(shape=img_shape)
 
