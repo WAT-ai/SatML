@@ -25,7 +25,8 @@ def yolo_dense_loss(lambda_box=5.0, lambda_obj=1.0):
         # Objectness loss (BCE)
         obj_loss = tf.keras.backend.binary_crossentropy(obj_true, obj_pred)
 
-        assert obj_loss.shape == obj_true.shape, f"Objectness loss shape mismatch {obj_loss.shape} != {obj_true.shape}"
+        if obj_loss.shape != obj_true.shape:
+            raise ValueError(f"Objectness loss shape mismatch {obj_loss.shape} != {obj_true.shape}")
 
         # Box loss (L2), only where objectness == 1
         box_loss = tf.reduce_sum(tf.square(box_true - box_pred), axis=-1)  # (batch, max_boxes)
