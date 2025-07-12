@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import tifffile
 
 from PIL import Image
 from typing import Tuple, Generator, Optional, Union
@@ -21,10 +22,7 @@ def read_tiff_from_file(file_path: str | os.PathLike) -> np.ndarray:
     Returns:
         np.ndarray: numpy array containing file contents. Assumes BGR format
     """
-    with Image.open(file_path) as img:
-        data = np.array(img, dtype=np.float32)
-
-    return data
+    return tifffile.imread(file_path).astype(np.float32)
 
 
 def plot_tiff_images(dir: str | os.PathLike) -> None:
