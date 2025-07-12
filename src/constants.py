@@ -15,4 +15,5 @@ IMAGE_FILE_NAMES = (
     "TOA_WV3_SWIR6.tif",
     "TOA_WV3_SWIR7.tif",
     "TOA_WV3_SWIR8.tif",
+    "mag1c.tif"
 )

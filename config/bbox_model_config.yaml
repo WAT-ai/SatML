@@ -271,7 +271,9 @@ force_square: False
 blank_percentage: 0.1
 
 augmentations:
-- 'crop'
+- 'none'
+- 'horizontal_flip'
+- 'vertical_flip'
 
 # output config
 output_dir: './output/bbox_model'

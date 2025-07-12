@@ -1,7 +1,8 @@
 import os
 import tensorflow as tf
 
-from src.image_utils import data_generator, bbox_data_generator, is_valid_bbox
+from src.image_utils import data_generator, bbox_data_generator, has_valid_bbox
+from src.constants import IMAGE_FILE_NAMES
 
 
 def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = [], force_square: bool = False) -> tf.data.Dataset:
@@ -13,8 +14,8 @@ def create_bbox_dataset(data_dir, max_boxes=10, exclude_dirs: list = [], force_s
         - Labels: (max_boxes, 4)
     """
     output_sig = (
-        tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
-        tf.TensorSpec(shape=(max_boxes, 4), dtype=tf.float32),  # bounding box labels
+        tf.TensorSpec(shape=(512, 512, len(IMAGE_FILE_NAMES)), dtype=tf.float32),  # Images
+        tf.TensorSpec(shape=(max_boxes, 5), dtype=tf.float32),  # bounding box labels and objectness score
         tf.TensorSpec(shape=(), dtype=tf.string)                # Image directory path
     )
 
@@ -38,7 +39,7 @@ def create_dataset(dir: str | os.PathLike) -> tf.data.Dataset:
         tf.data.Dataset: A TensorFlow dataset.
     """
     output_sig = (
-        tf.TensorSpec(shape=(512, 512, 16), dtype=tf.float32),  # Images
+        tf.TensorSpec(shape=(512, 512, len(IMAGE_FILE_NAMES)), dtype=tf.float32),  # Images
         tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32),   # Labels
         tf.TensorSpec(shape=(), dtype=tf.string)                # Directory
     )
@@ -63,7 +64,7 @@ def augment_image(image, bboxes, transformation):
 
     augmented_bboxes = []
 
-    valid_mask = tf.cast(tf.map_fn(is_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
+    valid_mask = tf.cast(tf.map_fn(has_valid_bbox, bboxes, dtype=tf.bool), tf.bool)
     valid_mask = tf.expand_dims(valid_mask, axis=-1)  # Shape becomes (10, 1)
     valid_mask = tf.broadcast_to(valid_mask, tf.shape(bboxes))  # Shape (10, 4)
 

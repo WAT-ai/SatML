@@ -25,6 +25,54 @@ print("test_images:", len(test_images))
 print("y_true:", len(y_true))
 
 
+def get_coords_from_bbox(bbox):
+    """
+    Converts objectness, x_center, y_center, width, height format to x_left, x_right, y_top, y_bottom.
+    """
+    x_center, y_center, width, height = bbox[1:5]
+    x_left = x_center - width / 2
+    x_right = x_center + width / 2
+    y_top = y_center - height / 2
+    y_bottom = y_center + height / 2
+    return [x_left, x_right, y_top, y_bottom]
+
+
+def grid_to_boxes(pred_grid, image_height, image_width, obj_thresh=0.5):
+    """
+    Convert YOLO-style grid output (S, S, B, 5) to bounding boxes in image coordinates.
+    Each cell: [objectness, x_cell, y_cell, w, h] with x_cell/y_cell in [0, 1].
+    """
+    S, _, B, _ = pred_grid.shape
+    boxes = []
+
+    for i in range(S):
+        for j in range(S):
+            for b in range(B):
+                obj_score, x_cell, y_cell, w, h = pred_grid[i, j, b]
+
+                if obj_score < obj_thresh:
+                    continue
+
+                # Recover global normalized center coordinates
+                x_center = (j + x_cell) / S
+                y_center = (i + y_cell) / S
+
+                x_abs = x_center * image_width
+                y_abs = y_center * image_height
+                w_abs = w * image_width
+                h_abs = h * image_height
+
+                x_left = x_abs - w_abs / 2
+                x_right = x_abs + w_abs / 2
+                y_top = y_abs - h_abs / 2
+                y_bottom = y_abs + h_abs / 2
+
+                boxes.append([x_left, x_right, y_top, y_bottom])
+
+    return boxes
+
+
+
 def draw_bounding_boxes(image: np.ndarray, ground_truth_boxes: list, predicted_boxes: list):
     """
     Draws ground truth and predicted bounding boxes on an image.
@@ -38,13 +86,15 @@ def draw_bounding_boxes(image: np.ndarray, ground_truth_boxes: list, predicted_b
     ax.imshow(image, cmap="gray")  # Assuming grayscale image
     height, width = image.shape
 
+    ground_truth_boxes = grid_to_boxes(ground_truth_boxes, height, width)
+    predicted_boxes = grid_to_boxes(predicted_boxes, height, width, 0.5)
+
+    print("Ground truth boxes:", ground_truth_boxes)
+    print("Predicted boxes:", predicted_boxes)
+
     # Draw ground truth boxes in green
     for box in ground_truth_boxes:
         x_left, x_right, y_top, y_bottom = box
-        x_left = x_left * image.shape[1]
-        x_right = x_right * image.shape[1]
-        y_top = y_top * image.shape[0]
-        y_bottom = y_bottom * image.shape[0]
         width = x_right - x_left
         height = y_bottom - y_top
         rect = patches.Rectangle(
@@ -57,15 +107,10 @@ def draw_bounding_boxes(image: np.ndarray, ground_truth_boxes: list, predicted_b
             alpha=0.3,
         )  # Semi-transparent fill
         ax.add_patch(rect)
-        print(f"GT: {x_left, x_right, y_top, y_bottom}")
 
     # Draw predicted boxes in yellow
     for box in predicted_boxes:
         x_left, x_right, y_top, y_bottom = box
-        x_left = x_left * image.shape[1]
-        x_right = x_right * image.shape[1]
-        y_top = y_top * image.shape[0]
-        y_bottom = y_bottom * image.shape[0]
         width = x_right - x_left
         height = y_bottom - y_top
         rect = patches.Rectangle(
@@ -78,7 +123,6 @@ def draw_bounding_boxes(image: np.ndarray, ground_truth_boxes: list, predicted_b
             alpha=0.3,
         )  # Semi-transparent fill
         ax.add_patch(rect)
-        print(f"Pred: {x_left, x_right, y_top, y_bottom}")
 
     ax.axis("off")  # Optional: hide axes
     return fig
