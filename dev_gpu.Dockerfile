@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.5.1-cudnn-devel-ubuntu22.04
+FROM tensorflow/tensorflow:2.19.0-gpu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     git \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create working directory (usually bind-mounted to your host code)
@@ -26,5 +29,8 @@ COPY requirements.txt .
 RUN python3 -m venv $VENV_PATH && \
     $VENV_PATH/bin/pip install --upgrade pip && \
     $VENV_PATH/bin/pip install -r requirements.txt
+
+RUN $VENV_PATH/bin/pip uninstall tensorflow -y && \
+    $VENV_PATH/bin/pip install tensorflow[and-cuda]
 
 CMD ["bash"]
