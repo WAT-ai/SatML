@@ -274,6 +274,10 @@ augmentations:
 - 'none'
 - 'horizontal_flip'
 - 'vertical_flip'
+- 'rotate'
+- 'spectral_noise'
+- 'random_translate'
+- 'scale'
 
 # output config
 output_dir: './output/bbox_model'
