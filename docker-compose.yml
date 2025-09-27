@@ -25,7 +25,7 @@ services:
         --backend-store-uri sqlite:////db/mlflow.db
         --artifacts-destination /mlruns/artifacts
     ports:
-      - "5050:5000"  # expose as localhost:5050
+      - "5050:5050"
     volumes:
       - ./artifacts/mlruns:/mlruns
       - ./artifacts/mlflow_db:/db
