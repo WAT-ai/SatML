@@ -5,3 +5,4 @@ venv/
 sklearn-env/
 .ruff_cache/
 .env
+artifacts/
