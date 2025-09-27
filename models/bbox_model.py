@@ -1,13 +1,12 @@
 import sys
 import yaml
-import random
 import numpy as np
 import tensorflow as tf
 from datetime import datetime
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 
-from src.losses import iou_loss, modified_mean_squared_error, ciou_loss, yolo_dense_loss, yolo_grid_loss
+from src.losses import iou_loss, modified_mean_squared_error, ciou_loss, yolo_dense_loss, yolo_focal_loss
 from src.data_loader import has_valid_bbox, create_bbox_dataset
 from src.constants import IMAGE_FILE_NAMES
 
@@ -47,25 +46,49 @@ class BBoxModel:
 
         inputs = tf.keras.Input(shape=img_shape)
 
-        x = tf.keras.layers.Conv2D(16, 3, padding="same", activation="swish")(inputs)
+        # Block 1 - Start with smaller filters for hyperspectral data
+        x = tf.keras.layers.Conv2D(
+            16, 3, padding="same", activation="swish", kernel_regularizer=tf.keras.regularizers.l2(0.001)
+        )(inputs)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.MaxPooling2D()(x)
+        x = tf.keras.layers.Dropout(0.15)(x)  # Increased dropout
 
-        x = tf.keras.layers.Conv2D(32, 3, padding="same", activation="swish")(x)
+        # Block 2
+        x = tf.keras.layers.Conv2D(
+            32, 3, padding="same", activation="swish", kernel_regularizer=tf.keras.regularizers.l2(0.001)
+        )(x)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.MaxPooling2D()(x)
+        x = tf.keras.layers.Dropout(0.25)(x)
 
-        x = tf.keras.layers.Conv2D(64, 3, padding="same", activation="swish")(x)
+        # Block 3
+        x = tf.keras.layers.Conv2D(
+            64, 3, padding="same", activation="swish", kernel_regularizer=tf.keras.regularizers.l2(0.001)
+        )(x)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.MaxPooling2D()(x)
+        x = tf.keras.layers.Dropout(0.35)(x)
 
-        x = tf.keras.layers.Conv2D(128, 3, padding="same", activation="swish")(x)
+        # Block 4 - Add spatial dropout for better regularization
+        x = tf.keras.layers.Conv2D(
+            128, 3, padding="same", activation="swish", kernel_regularizer=tf.keras.regularizers.l2(0.001)
+        )(x)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.MaxPooling2D()(x)
+        x = tf.keras.layers.SpatialDropout2D(0.4)(x)  # Spatial dropout for 2D feature maps
 
-        x = tf.keras.layers.Conv2D(256, 3, padding="same", activation="swish")(x)
+        # Block 5 - Reduced channels to reduce overfitting
+        x = tf.keras.layers.Conv2D(
+            96,
+            3,
+            padding="same",
+            activation="swish",  # Further reduced from 128
+            kernel_regularizer=tf.keras.regularizers.l2(0.001),
+        )(x)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.MaxPooling2D()(x)
+        x = tf.keras.layers.SpatialDropout2D(0.5)(x)
 
         output_channels = self.boxes_per_grid * 5
         x = tf.keras.layers.Conv2D(output_channels, 1, activation="sigmoid")(x)
@@ -76,8 +99,8 @@ class BBoxModel:
 
     def compile(
         self,
-        optimizer=Adam(learning_rate=0.001),
-        loss=yolo_grid_loss(),
+        optimizer=Adam(learning_rate=0.0001),
+        loss=yolo_focal_loss(lambda_coord=5.0, lambda_noobj=0.3, alpha=0.25, gamma=2.0),
         metrics=["mae", "accuracy"],
     ):
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
@@ -97,14 +120,16 @@ class BBoxModel:
 
         mean = sum_pixels / tf.cast(num_pixels, tf.float32)
         variance = (sum_squares / tf.cast(num_pixels, tf.float32)) - tf.square(mean)
-        stddev = tf.sqrt(variance)
+        stddev = tf.sqrt(tf.maximum(variance, 1e-8))  # Avoid division by zero
 
         self.norm_mean = tf.constant(mean).numpy()
         self.norm_std = tf.constant(stddev).numpy()
 
-        print(f"Normalization constants: mean={self.norm_mean}, stddev={self.norm_std}")
+        # last band is not an image band, set to 0 mean, 1 std
+        self.norm_mean[-1] = 0.0
+        self.norm_std[-1] = 1.0
 
-        return mean, stddev
+        return self.norm_mean, self.norm_std
 
     def preprocess_dataset(self, dataset: tf.data.Dataset):
         def is_valid_sample(image, bboxes):
@@ -196,12 +221,12 @@ class BBoxModel:
         return grid
 
     @staticmethod
-    def augment_image(image, bboxes, transformation, max_translate=0.3, crop_fraction=0.6):
-        """Apply a single transformation to image and bboxes."""
+    def augment_image(image, bboxes, transformation, max_translate=0.2, crop_fraction=0.8):
+        """Apply a single transformation to image and bboxes - optimized for hyperspectral methane detection."""
         if transformation == "none":
             return image, bboxes
 
-        # horizontal flip
+        # horizontal flip - valid for methane plumes
         if transformation == "horizontal_flip":
             image = tf.image.flip_left_right(image)
             b = tf.identity(bboxes)
@@ -209,7 +234,7 @@ class BBoxModel:
             b_x = 1.0 - b[:, 1]
             return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
 
-        # vertical flip
+        # vertical flip - valid for methane plumes
         if transformation == "vertical_flip":
             image = tf.image.flip_up_down(image)
             b = tf.identity(bboxes)
@@ -217,7 +242,7 @@ class BBoxModel:
             b_y = 1.0 - b[:, 2]
             return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
 
-        # 90-degree rotation CCW
+        # 90-degree rotation CCW - valid for methane plumes
         if transformation == "rotate":
             image = tf.image.rot90(image, k=1)
             b = tf.identity(bboxes)
@@ -226,6 +251,15 @@ class BBoxModel:
             new_y = 1.0 - x
             return image, tf.stack([b[:, 0], new_x, new_y, h, w], axis=1)
 
+        # Spectral noise - specific to hyperspectral data
+        if transformation == "spectral_noise":
+            # Add small amounts of noise across spectral bands
+            noise = tf.random.normal(shape=tf.shape(image), mean=0.0, stddev=0.01)
+            image = tf.add(image, noise)
+            image = tf.clip_by_value(image, 0.0, 1.0)
+            return image, bboxes
+
+        # Small random translation - conservative for methane plume detection
         if transformation == "random_translate":
             img_h = tf.shape(image)[0]
             img_w = tf.shape(image)[1]
@@ -239,6 +273,7 @@ class BBoxModel:
             b_y = tf.clip_by_value(b[:, 2] + dy, 0.0, 1.0)
             return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
 
+        # Conservative random crop - important to preserve plume context
         if transformation == "random_crop":
             img_h = tf.shape(image)[0]
             img_w = tf.shape(image)[1]
@@ -254,6 +289,22 @@ class BBoxModel:
             b_x = tf.clip_by_value(b_x, 0.0, 1.0)
             b_y = tf.clip_by_value(b_y, 0.0, 1.0)
             return image, tf.stack([b[:, 0], b_x, b_y, b[:, 3], b[:, 4]], axis=1)
+
+        # Scale augmentation - slight zoom in/out
+        if transformation == "scale":
+            scale_factor = tf.random.uniform([], 0.9, 1.1)
+            img_h = tf.shape(image)[0]
+            img_w = tf.shape(image)[1]
+            new_h = tf.cast(tf.cast(img_h, tf.float32) * scale_factor, tf.int32)
+            new_w = tf.cast(tf.cast(img_w, tf.float32) * scale_factor, tf.int32)
+
+            # Resize and then crop/pad back to original size
+            image = tf.image.resize(image, [new_h, new_w])
+            image = tf.image.resize_with_crop_or_pad(image, img_h, img_w)
+
+            # Adjust bounding boxes
+            b = tf.identity(bboxes)
+            return image, tf.stack([b[:, 0], b[:, 1], b[:, 2], b[:, 3] * scale_factor, b[:, 4] * scale_factor], axis=1)
 
         raise ValueError(f"Unsupported augmentation: {transformation}")
 
