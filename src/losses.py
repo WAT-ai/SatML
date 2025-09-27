@@ -107,7 +107,8 @@ def yolo_focal_loss(lambda_coord=5.0, lambda_noobj=0.5, alpha=0.25, gamma=2.0):
 
         # Focal loss weights
         pt = tf.where(obj_true == 1, obj_pred, 1 - obj_pred)
-        focal_weight = alpha * tf.pow(1 - pt, gamma)
+        alpha_factor = tf.where(obj_true == 1, alpha, 1.0 - alpha)
+        focal_weight = alpha_factor * tf.pow(1 - pt, gamma)
 
         obj_loss = tf.reduce_sum(focal_weight * bce)
 
