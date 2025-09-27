@@ -3,7 +3,6 @@ ipython==8.27.0
 jupyter_client==8.6.3
 jupyter_core==5.7.2
 matplotlib-inline==0.1.7
-numpy
 opencv-python==4.10.0.84
 pandas==2.2.3
 ipywidgets==8.1.5
@@ -17,3 +16,18 @@ ruff==0.9.9
 pytest
 imagecodecs
 gradio==5.36.2
+mlflow>=2.12
+prefect>=2.19
+fastapi>=0.109
+uvicorn[standard]>=0.27
+pydantic>=2.6
+torch>=2.3
+torchvision>=0.18
+torchaudio>=2.3
+albumentations>=1.4
+opencv-python-headless>=4.9
+tifffile>=2024.2
+numpy>=1.26
+pyarrow>=15.0
+h5py>=3.11
+torchmetrics>=1.3

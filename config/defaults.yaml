@@ -1,0 +1,64 @@
+experiment_name: bbox  # change to "bbox" | "seg" as needed
+
+mlflow:
+  tracking_uri: "http://localhost:5050"
+  experiment: "${experiment_name}"
+
+data:
+  raw_root: "data/raw_data/STARCOP_train_easy"
+  processed_root: "artifacts/datasets"
+  shard_format: "hdf5"           # zarr | hdf5
+  image_exts: [".tif", ".tiff"]
+  label_binary_name: "labelbinary.tif"
+  label_rgba_name: "label_rgba.tif"
+  normalize: {enabled: true, mean: 0.5, std: 0.25, clip_min: 0.0, clip_max: 1.0}
+  input_size: {bbox: [256,256], seg: [256,256]}
+  pad_mode: "constant"
+  split: {train_ratio: 0.8, val_ratio: 0.2, seed: 42}
+  aug:
+    bbox: {hflip_prob: 0.5, vflip_prob: 0.0, rotate_deg: 10}
+    seg:  {hflip_prob: 0.5, vflip_prob: 0.0, rotate_deg: 10}
+
+train:
+  seed: 42
+  device: "auto"           # auto | cpu | cuda
+  epochs: 20
+  batch_size: 16
+  num_workers: 4
+  optimizer: {name: "adamw", lr: 3.0e-4, weight_decay: 1.0e-2}
+  scheduler: {name: "cosine", warmup_epochs: 2}
+  checkpointing:
+    dir: "artifacts/models/${experiment_name}"
+    save_top_k: 1
+  logging: {log_every_n_steps: 50}
+
+infer:
+  input_dir: "data/raw_data/STARCOP_train_easy"
+  output_dir: "artifacts/preds/${experiment_name}"
+  bbox: {score_thresh: 0.35, nms_iou_thresh: 0.5, max_dets: 50}
+  seg:  {prob_thresh: 0.5}
+  models: {bbox_path: null, seg_path: null}
+
+eval:
+  bbox:     {ap50_target: 0.50}
+  seg:      {miou_target: 0.60}
+  stitched: {miou_target: 0.55}
+  overlays: {save: true, limit: 50, out_dir: "artifacts/reports/${experiment_name}"}
+
+model:
+  bbox:
+    name: "bbox_cnn"
+    in_channels: 1
+    num_classes: 1
+    backbone: "resnet18"
+    pretrained: false
+    head: {type: "conv", hidden_dim: 128}
+  seg_unet:
+    name: "unet"
+    in_channels: 1
+    out_classes: 1
+    base_channels: 32
+    depth: 4
+    bilinear: true
+    dropout: 0.0
+    loss: "dice_bce"
