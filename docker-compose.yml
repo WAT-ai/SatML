@@ -15,3 +15,29 @@ services:
             - capabilities: [gpu]
     stdin_open: true
     tty: true
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.0
+    command: >
+      mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri sqlite:////db/mlflow.db
+        --artifacts-destination /mlruns/artifacts
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./artifacts/mlruns:/mlruns
+      - ./artifacts/mlflow_db:/db
+    user: "0:0"
+
+  prefect:
+    image: prefecthq/prefect:2-latest
+    command: >
+      bash -lc "prefect server start --host 0.0.0.0"
+    ports:
+      - "4200:4200"
+    environment:
+      PREFECT_API_URL: "http://localhost:4200/api"
+    volumes:
+      - ./artifacts/prefect:/root/.prefect

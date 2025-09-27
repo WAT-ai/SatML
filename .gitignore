@@ -4,3 +4,5 @@ venv/
 *.DS_STORE
 sklearn-env/
 .ruff_cache/
+.env
+artifacts/
