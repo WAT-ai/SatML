@@ -40,6 +40,14 @@ def yolo_dense_loss(lambda_box=5.0, lambda_obj=1.0):
 
 
 def yolo_grid_loss(lambda_coord=5.0, lambda_noobj=0.5):
+    """
+    Custom YOLO loss for grid-based output (S, S, B, 5).
+    Assumes 1 class (methane plume) and no class loss.
+
+    Parameters:
+        lambda_coord: weight for the coordinate loss
+        lambda_noobj: weight for the no-object loss"""
+
     def loss_fn(y_true, y_pred):
         # Shape: (batch, S, S, B, 5)
         object_mask = y_true[..., 0]
@@ -56,6 +64,57 @@ def yolo_grid_loss(lambda_coord=5.0, lambda_noobj=0.5):
         # No-object loss (optional — discourage false positives)
         noobj_mask = 1.0 - object_mask
         noobj_loss = tf.reduce_sum(lambda_noobj * bce(tf.zeros_like(y_pred[..., 0]), y_pred[..., 0]) * noobj_mask)
+
+        total_loss = lambda_coord * (xy_loss + wh_loss) + obj_loss + noobj_loss
+
+        return total_loss / tf.cast(tf.shape(y_true)[0], tf.float32)  # average over batch
+
+    return loss_fn
+
+
+def yolo_focal_loss(lambda_coord=5.0, lambda_noobj=0.5, alpha=0.25, gamma=2.0):
+    """
+    YOLO loss with focal loss for objectness to handle class imbalance in methane plume detection.
+    Methane plumes are rare objects, so focal loss helps focus on hard examples.
+    """
+
+    def loss_fn(y_true, y_pred):
+        # Shape: (batch, S, S, B, 5)
+        object_mask = y_true[..., 0]
+
+        # Coordinate loss (only where object exists) - use smooth L1 for robustness
+        xy_diff = y_true[..., 1:3] - y_pred[..., 1:3]
+        xy_loss = tf.reduce_sum(
+            tf.where(tf.abs(xy_diff) < 1.0, 0.5 * tf.square(xy_diff), tf.abs(xy_diff) - 0.5)
+            * object_mask[..., tf.newaxis]
+        )
+
+        wh_diff = y_true[..., 3:5] - y_pred[..., 3:5]
+        wh_loss = tf.reduce_sum(
+            tf.where(tf.abs(wh_diff) < 1.0, 0.5 * tf.square(wh_diff), tf.abs(wh_diff) - 0.5)
+            * object_mask[..., tf.newaxis]
+        )
+
+        # Focal loss for objectness (handles class imbalance)
+        obj_true = y_true[..., 0]
+        obj_pred = y_pred[..., 0]
+
+        # Clip predictions for numerical stability
+        obj_pred = tf.clip_by_value(obj_pred, 1e-6, 1.0 - 1e-6)
+
+        # Binary cross entropy
+        bce = -(obj_true * tf.math.log(obj_pred) + (1 - obj_true) * tf.math.log(1 - obj_pred))
+
+        # Focal loss weights
+        pt = tf.where(obj_true == 1, obj_pred, 1 - obj_pred)
+        focal_weight = alpha * tf.pow(1 - pt, gamma)
+
+        obj_loss = tf.reduce_sum(focal_weight * bce)
+
+        # Reduced no-object loss since focal loss handles this better
+        noobj_mask = 1.0 - object_mask
+        noobj_bce = tf.keras.backend.binary_crossentropy(tf.zeros_like(obj_pred), obj_pred)
+        noobj_loss = tf.reduce_sum(lambda_noobj * noobj_bce * noobj_mask)
 
         total_loss = lambda_coord * (xy_loss + wh_loss) + obj_loss + noobj_loss
 
